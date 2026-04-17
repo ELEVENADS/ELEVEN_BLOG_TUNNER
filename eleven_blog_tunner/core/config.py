@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4"
     llm_temperature: float = 0.7
     llm_max_tokens: int = 4096
+    # 本地 LLM 配置
+    local_llm_base_url: str = "http://localhost:11434/api"
+    local_llm_model: str = "llama3"
     
     # RAG 配置
     vector_db_path: str = "./data/vector_db"

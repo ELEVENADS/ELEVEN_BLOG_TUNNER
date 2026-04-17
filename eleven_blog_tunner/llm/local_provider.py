@@ -63,7 +63,7 @@ class LocalProvider(BaseLLM):
             "system": system_content
         }
     
-    async def chat(self, messages: List[Dict[str, Any]], **kwargs) -> str:
+    async def _chat(self, messages: List[Dict[str, Any]], **kwargs) -> str:
         """对话
         
         Args:
@@ -127,7 +127,7 @@ class LocalProvider(BaseLLM):
         except Exception as e:
             raise Exception(f"Request failed: {str(e)}")
     
-    async def stream_chat(self, messages: List[Dict[str, Any]], **kwargs) -> AsyncIterator[str]:
+    async def _stream_chat(self, messages: List[Dict[str, Any]], **kwargs) -> AsyncIterator[str]:
         """流式对话
         
         Args:

@@ -27,13 +27,22 @@ class LLMFactory:
         
         provider_class = cls._providers[provider]
         
+        # 记忆系统配置
+        use_memory = kwargs.get("use_memory", True)
+        max_history = kwargs.get("max_history", 10)
+        
         # 根据提供商传入相应配置
         if provider == "openai":
+            # 优先使用 llm_api_key，如果没有则使用 api_key
+            api_key = settings.llm_api_key if settings.llm_api_key else settings.api_key
             return provider_class(
-                api_key=settings.api_key,
+                api_key=api_key,
                 model=kwargs.get("model", settings.llm_model),
                 temperature=kwargs.get("temperature", settings.llm_temperature),
                 max_tokens=kwargs.get("max_tokens", settings.llm_max_tokens),
+                base_url=settings.llm_base_url if settings.llm_base_url else None,
+                use_memory=use_memory,
+                max_history=max_history,
             )
         elif provider == "local":
             return provider_class(
@@ -41,10 +50,16 @@ class LLMFactory:
                 base_url=kwargs.get("base_url", settings.local_llm_base_url),
                 temperature=kwargs.get("temperature", settings.llm_temperature),
                 max_tokens=kwargs.get("max_tokens", settings.llm_max_tokens),
+                use_memory=use_memory,
+                max_history=max_history,
             )
         
-        return provider_class(**kwargs)
-
+        # 其他提供商
+        return provider_class(
+            use_memory=use_memory,
+            max_history=max_history,
+            **kwargs
+        )
 
 if __name__ == "__main__":
     """测试不同的模型提供商"""

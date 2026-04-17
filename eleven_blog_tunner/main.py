@@ -4,7 +4,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
-from eleven_blog_tunner.api.routes import config
+from eleven_blog_tunner.api import router as api_router
 from eleven_blog_tunner.core.config import get_settings
 
 @asynccontextmanager
@@ -28,7 +28,7 @@ app = FastAPI(
 )
 
 # 注册路由
-app.include_router(config.router)
+app.include_router(api_router)
 
 @app.get("/")
 async def root():

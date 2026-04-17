@@ -12,10 +12,13 @@ class OpenAIProvider(BaseLLM):
     使用标准 OpenAI API 格式，支持对话、流式对话和函数调用。
     """
     
-    def __init__(self, api_key: str, model: str = "gpt-4", **kwargs):
+    def __init__(self, api_key: str, model: str = "gpt-4", base_url: str = None, **kwargs):
         super().__init__(model=model, **kwargs)
         self.api_key = api_key
-        self.client = AsyncOpenAI(api_key=api_key)
+        client_kwargs = {"api_key": api_key}
+        if base_url:
+            client_kwargs["base_url"] = base_url
+        self.client = AsyncOpenAI(**client_kwargs)
     
     def _prepare_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """准备消息，转换为 OpenAI 格式
@@ -56,7 +59,7 @@ class OpenAIProvider(BaseLLM):
         
         return prepared_messages
     
-    async def chat(self, messages: List[Dict[str, Any]], **kwargs) -> str:
+    async def _chat(self, messages: List[Dict[str, Any]], **kwargs) -> str:
         """对话
         
         Args:
@@ -114,7 +117,7 @@ class OpenAIProvider(BaseLLM):
         
         return message.content or ""
     
-    async def stream_chat(self, messages: List[Dict[str, Any]], **kwargs) -> AsyncIterator[str]:
+    async def _stream_chat(self, messages: List[Dict[str, Any]], **kwargs) -> AsyncIterator[str]:
         """流式对话
         
         Args:

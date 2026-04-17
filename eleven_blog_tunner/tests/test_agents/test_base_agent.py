@@ -1,8 +1,15 @@
 import pytest
-from eleven_blog_tunner.agents.base_agent import BaseAgent, AgentContext
+from eleven_blog_tunner.agents.base_agent import BaseAgent, AgentContext, AgentType
 
 class MockAgent(BaseAgent):
     """测试用 Agent 实现"""
+
+    def __init__(self, name: str, description: str):
+        super().__init__(
+            name=name,
+            description=description,
+            agent_type=AgentType.SYSTEM
+        )
 
     async def execute(self, context: AgentContext) -> str:
         return f"Processed: {context.user_input}"
@@ -59,6 +66,8 @@ class TestBaseAgent:
     def test_agent_add_tool(self):
         agent = MockAgent(name="test", description="desc")
         assert len(agent.tools) == 0
-        agent.add_tool("mock_tool")
+        def mock_func():
+            pass
+        agent.add_tool("mock_tool", mock_func)
         assert len(agent.tools) == 1
-        assert agent.tools[0] == "mock_tool"
+        assert "mock_tool" in agent.tools

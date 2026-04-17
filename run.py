@@ -8,7 +8,7 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-# 现在可以导入模块了
+# 导入模块了
 from eleven_blog_tunner.main import app
 import uvicorn
 

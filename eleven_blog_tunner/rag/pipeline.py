@@ -20,7 +20,10 @@ class RAGPipeline:
             chunk_size=settings.chunk_size,
             chunk_overlap=settings.chunk_overlap
         )
-        self.embedder = EmbeddingService(model_name=settings.embedding_model)
+        self.embedder = EmbeddingService(
+            model_name=settings.embedding_model,
+            use_local=settings.use_local_embedding
+        )
         self.searcher = Searcher()
         self.reranker = Reranker()
     

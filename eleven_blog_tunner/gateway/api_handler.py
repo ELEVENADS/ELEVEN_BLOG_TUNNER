@@ -183,6 +183,10 @@ class APIHandler:
             # 获取任务结果
             result = await self.task_manager.get_task_result(task_id)
             
+            # 确保返回的 data 是字典类型
+            if isinstance(result, str):
+                result = {"result": result}
+            
             return {
                 "success": True,
                 "data": result

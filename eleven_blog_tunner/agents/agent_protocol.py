@@ -274,6 +274,7 @@ class AgentProtocol:
         self.call_chain.update_task_status(task_context.task_id, TaskStatus.RUNNING)
 
         current_input = initial_input
+        writer_result = None
 
         for agent_name in agent_sequence:
             agent = self.get_agent(agent_name)
@@ -292,7 +293,17 @@ class AgentProtocol:
             })
 
             try:
-                current_input = await agent.execute(current_input)
+                # 创建 AgentContext 对象
+                from eleven_blog_tunner.agents.base_agent import AgentContext
+                context = AgentContext(
+                    task_id=task_context.task_id,
+                    user_input=current_input
+                )
+                current_input = await agent.execute(context)
+                
+                # 保存 WriterAgent 的结果
+                if agent_name == "WriterAgent":
+                    writer_result = current_input
             except Exception as e:
                 self.call_chain.update_task_status(
                     task_context.task_id,
@@ -301,13 +312,16 @@ class AgentProtocol:
                 )
                 raise
 
+        # 对于文章生成任务，返回 WriterAgent 的结果
+        final_result = writer_result if writer_result else current_input
+        
         self.call_chain.update_task_status(
             task_context.task_id,
             TaskStatus.COMPLETED,
-            result=current_input
+            result=final_result
         )
 
-        return current_input
+        return final_result
 
     async def call_agent(
         self,

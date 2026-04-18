@@ -33,10 +33,8 @@ class LLMFactory:
         
         # 根据提供商传入相应配置
         if provider == "openai":
-            # 优先使用 llm_api_key，如果没有则使用 api_key
-            api_key = settings.llm_api_key if settings.llm_api_key else settings.api_key
             return provider_class(
-                api_key=api_key,
+                api_key=settings.llm_api_key,
                 model=kwargs.get("model", settings.llm_model),
                 temperature=kwargs.get("temperature", settings.llm_temperature),
                 max_tokens=kwargs.get("max_tokens", settings.llm_max_tokens),

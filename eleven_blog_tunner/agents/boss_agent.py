@@ -6,6 +6,7 @@ Boss Agent 模块
 from typing import Dict, List, Optional, Any
 from eleven_blog_tunner.agents.base_agent import BaseAgent, AgentContext, AgentType, AgentResponse
 from eleven_blog_tunner.agents.agent_protocol import get_protocol
+from eleven_blog_tunner.utils.logger import logger_instance as logger
 
 
 class BossAgent(BaseAgent):
@@ -27,7 +28,14 @@ class BossAgent(BaseAgent):
             llm_provider=llm_provider,
             use_memory=use_memory
         )
-        self.protocol = get_protocol()
+        self._protocol = None
+    
+    @property
+    def protocol(self):
+        if self._protocol is None:
+            from eleven_blog_tunner.agents.agent_protocol import get_protocol
+            self._protocol = get_protocol()
+        return self._protocol
 
     async def execute(self, context: AgentContext) -> str:
         """执行任务调度
@@ -38,12 +46,17 @@ class BossAgent(BaseAgent):
         Returns:
             调度结果
         """
+        logger.info(f"BossAgent 开始执行任务: {context.task_id}")
+        
         if not self.validate_context(context):
+            logger.error(f"BossAgent 无效的上下文: {context.task_id}")
             return "错误: 无效的上下文"
 
         user_input = context.user_input
+        logger.info(f"BossAgent 接收到用户输入: {user_input[:100]}...")
 
         task_type = await self._analyze_task_type(user_input)
+        logger.info(f"BossAgent 分析任务类型: {task_type}")
 
         self.add_to_memory("user", user_input)
 
@@ -59,6 +72,7 @@ class BossAgent(BaseAgent):
             result = await self._handle_general_task(context)
 
         self.add_to_memory("assistant", result)
+        logger.info(f"BossAgent 任务执行完成: {context.task_id}")
 
         return result
 

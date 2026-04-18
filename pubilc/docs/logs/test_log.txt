@@ -1,0 +1,81 @@
+{
+  "code": "200",
+  "data": {
+    "task_id": "e8b1e3b7-4551-47c4-a94c-e0c1eb127c7c",
+    "status": "created",
+    "message": "任务创建成功"
+  },
+  "message": "任务创建成功"
+}
+{
+  "code": "200",
+  "data": {
+    "tasks": [
+      {
+        "task_id": "e8b1e3b7-4551-47c4-a94c-e0c1eb127c7c",
+        "task_type": "article_generation",
+        "input_data": "如何学习Python编程",
+        "user_id": "test_user",
+        "status": "running",
+        "created_at": "2026-04-18T16:30:24.337417",
+        "updated_at": "2026-04-18T16:30:24.338930",
+        "result": null,
+        "error": null,
+        "progress": 30,
+        "steps": [
+          {
+            "step": "开始处理任务",
+            "timestamp": "2026-04-18T16:30:24.338930"
+          },
+          {
+            "step": "开始文章生成",
+            "timestamp": "2026-04-18T16:30:24.338930"
+          }
+        ]
+      }
+    ],
+    "total": 1
+  },
+  "message": "获取任务列表成功"
+}
+
+{
+  "code": "200",
+  "data": {
+    "task_id": "e8b1e3b7-4551-47c4-a94c-e0c1eb127c7c",
+    "status": "completed",
+    "data": {
+      "success": true,
+      "status": "completed",
+      "progress": 100,
+      "updated_at": "2026-04-18T16:31:31.681605",
+      "steps": [
+        {
+          "step": "开始处理任务",
+          "timestamp": "2026-04-18T16:30:24.338930"
+        },
+        {
+          "step": "开始文章生成",
+          "timestamp": "2026-04-18T16:30:24.338930"
+        },
+        {
+          "step": "文章生成完成",
+          "timestamp": "2026-04-18T16:31:31.681605"
+        }
+      ]
+    }
+  },
+  "message": "获取任务状态成功"
+}
+
+{
+  "code": "200",
+  "data": {
+    "task_id": "1345635d-e6d4-46ab-a473-201ef8965514",
+    "status": "completed",
+    "data": {
+      "result": "【文章审查报告】\n\n质量评分: 80/100\n优点: 结构清晰, 语言流畅\n待改进: 部分论述不够深入\n\n违规检测: 通过\n\n风格一致性: 一致\n\n修改建议:\n1. 建议优化文章结构\n2. 建议加强论述深度\n\n状态: 合格"
+    }
+  },
+  "message": "获取任务结果成功"
+}

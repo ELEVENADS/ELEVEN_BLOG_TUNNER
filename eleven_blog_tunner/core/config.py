@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     
     # API 配置
     api_base_url: str = "http://localhost:8000"
-    api_key: str = ""
     
     # LLM 配置
     llm_provider: str = "openai"
@@ -23,7 +22,7 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.7
     llm_max_tokens: int = 4096
     llm_base_url: str = ""  # 可选，用于兼容 OpenAI SDK 的第三方服务（如阿里云 DashScope）
-    llm_api_key: str = ""   # 可选，用于覆盖默认的 api_key
+    llm_api_key: str = ""   # LLM API Key
     
     # 本地 LLM 配置
     local_llm_base_url: str = "http://localhost:11434/api"
@@ -33,12 +32,15 @@ class Settings(BaseSettings):
     vector_db_path: str = "./data/vector_db"
     embedding_model: str = "text-embedding-3-small"
     local_embedding_model: str = "dengcao/bge-large-zh-v1.5:latest"
+    rerank_model: str = "bbjson/bge-reranker-base"
+    local_rerank_model: str = "bbjson/bge-reranker-base"
     use_local_embedding: bool = False
+    use_local_rerank: bool = False
     chunk_size: int = 1000
     chunk_overlap: int = 200
     
     # 数据库
-    database_url: str = "sqlite:///./data/app.db"
+    database_url: str = "postgresql://postgres:123456@localhost:5432/eleven_note"
     
     # 日志
     log_level: str = "INFO"

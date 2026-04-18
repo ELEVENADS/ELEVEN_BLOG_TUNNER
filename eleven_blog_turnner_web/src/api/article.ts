@@ -38,8 +38,8 @@ export interface ArticleListQuery {
 
 export const articleApi = {
   generateArticle: async (data: GenerateArticleRequest): Promise<ApiResponse<{ task_id: string; status: string }>> => {
-    const response = await apiClient.post<any, ApiResponse<{ task_id: string; status: string }>>('/articles/generate', data)
-    return response
+    const response = await apiClient.post<ApiResponse<{ task_id: string; status: string }>>('/articles/generate', data)
+    return response.data
   },
 
   getArticleList: async (query?: ArticleListQuery): Promise<ApiResponse<{ articles: Article[]; total: number }>> => {
@@ -48,37 +48,37 @@ export const articleApi = {
     if (query?.style_name) params.append('style_name', query.style_name)
     if (query?.skip) params.append('skip', String(query.skip))
     if (query?.limit) params.append('limit', String(query.limit))
-    const response = await apiClient.get<any, ApiResponse<{ articles: Article[]; total: number }>>(`/articles?${params.toString()}`)
-    return response
+    const response = await apiClient.get<ApiResponse<{ articles: Article[]; total: number }>>(`/articles?${params.toString()}`)
+    return response.data
   },
 
   getArticleDetail: async (articleId: string): Promise<ApiResponse<Article>> => {
-    const response = await apiClient.get<any, ApiResponse<Article>>(`/articles/${articleId}`)
-    return response
+    const response = await apiClient.get<ApiResponse<Article>>(`/articles/${articleId}`)
+    return response.data
   },
 
   updateArticle: async (articleId: string, data: { content: string; reason?: string }): Promise<ApiResponse<Article>> => {
-    const response = await apiClient.put<any, ApiResponse<Article>>(`/articles/${articleId}`, data)
-    return response
+    const response = await apiClient.put<ApiResponse<Article>>(`/articles/${articleId}`, data)
+    return response.data
   },
 
   deleteArticle: async (articleId: string): Promise<ApiResponse<null>> => {
-    const response = await apiClient.delete<any, ApiResponse<null>>(`/articles/${articleId}`)
-    return response
+    const response = await apiClient.delete<ApiResponse<null>>(`/articles/${articleId}`)
+    return response.data
   },
 
   submitReview: async (articleId: string): Promise<ApiResponse<{ status: string }>> => {
-    const response = await apiClient.post<any, ApiResponse<{ status: string }>>(`/articles/${articleId}/review`)
-    return response
+    const response = await apiClient.post<ApiResponse<{ status: string }>>(`/articles/${articleId}/review`)
+    return response.data
   },
 
   approveArticle: async (articleId: string): Promise<ApiResponse<{ status: string }>> => {
-    const response = await apiClient.post<any, ApiResponse<{ status: string }>>(`/articles/${articleId}/approve`)
-    return response
+    const response = await apiClient.post<ApiResponse<{ status: string }>>(`/articles/${articleId}/approve`)
+    return response.data
   },
 
   rejectArticle: async (articleId: string, reason?: string): Promise<ApiResponse<{ status: string; reason?: string }>> => {
-    const response = await apiClient.post<any, ApiResponse<{ status: string; reason?: string }>>(`/articles/${articleId}/reject`, { reason })
-    return response
+    const response = await apiClient.post<ApiResponse<{ status: string; reason?: string }>>(`/articles/${articleId}/reject`, { reason })
+    return response.data
   }
 }

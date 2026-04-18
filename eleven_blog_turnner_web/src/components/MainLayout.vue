@@ -329,8 +329,8 @@ document.addEventListener('click', (e) => {
   width: 250px;
   background: #fff;
   border-right: 1px solid #e7e7e7;
-  overflow-y: auto;
-  padding: 16px;
+  overflow: hidden;
+  padding: 8px;
 }
 
 .content-area {

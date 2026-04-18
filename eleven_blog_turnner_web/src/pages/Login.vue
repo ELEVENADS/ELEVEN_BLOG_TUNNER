@@ -82,6 +82,7 @@ const handleSubmit = async () => {
     MessagePlugin.success(isRegister.value ? '注册成功' : '登录成功')
     router.push('/dashboard')
   } else {
+    console.log(result)
     MessagePlugin.error(result.message)
   }
 }

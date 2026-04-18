@@ -17,6 +17,7 @@ import {
   Submenu,
   Card,
   Tree,
+  TreeSelect,
   Breadcrumb,
   BreadcrumbItem,
   Dropdown,
@@ -46,7 +47,16 @@ import {
   Row,
   Col,
   Popup,
-  Tooltip
+  Tooltip,
+  List,
+  ListItem,
+  ListItemMeta,
+  Empty,
+  Upload,
+  Progress,
+  Tabs,
+  TabPanel,
+  Slider
 } from 'tdesign-vue-next'
 
 const app = createApp(App)
@@ -90,6 +100,16 @@ app.use(Row)
 app.use(Col)
 app.use(Popup)
 app.use(Tooltip)
+app.use(List)
+app.use(ListItem)
+app.use(ListItemMeta)
+app.use(Empty)
+app.use(Upload)
+app.use(Progress)
+app.use(Tabs)
+app.use(TabPanel)
+app.use(Slider)
+app.use(TreeSelect)
 
 app.config.globalProperties.$message = Message
 app.config.globalProperties.$loading = Loading

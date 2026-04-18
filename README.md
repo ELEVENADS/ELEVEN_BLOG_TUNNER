@@ -14,6 +14,58 @@
 2. **文章生成**：根据学习到的风格生成新的文章
 3. **文章发布**：支持将生成的文章发布到多种博客平台
 
+### 系统功能架构
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        用户交互层 (Vue3)                         │
+├─────────────────────────────────────────────────────────────────┤
+│                      OpenAPI 服务层 (FastAPI)                    │
+├─────────────────────────────────────────────────────────────────┤
+│                      Gateway 层 (控制系统核心)                    │
+│  ┌──────────────┬──────────────┬──────────────┬──────────────┐  │
+│  │ TaskManager │ APIHandler  │StatusMonitor │ Integration  │  │
+│  │   任务管理器   │   API处理器   │   状态监控    │   集成模块    │  │
+│  └──────────────┴──────────────┴──────────────┴──────────────┘  │
+├──────────┬──────────┬──────────┬──────────┬──────────┬─────────┤
+│  用户管理  │  笔记管理  │  风格学习  │  文章生成  │  文章发布  │ 系统配置 │
+└──────────┴──────────┴──────────┴──────────┴──────────┴─────────┘
+```
+
+### 核心 Agent 说明
+
+系统包含 5 个核心 AI Agent，通过协作完成文章生成任务：
+
+| Agent | 职责 | 核心功能 |
+|-------|------|---------|
+| **Boss Agent** | 统筹系统任务调度和信息返回 | 接收用户请求、协调其他Agent工作流程、汇总执行结果 |
+| **System Agent** | 系统内任务状态查询和参数返回 | 获取用户风格配置数据、获取系统运行参数、查询任务执行状态 |
+| **Summary Agent** | 总结类工作 | 上下文压缩与总结、文章风格特征提取、长文本摘要生成、多文档融合总结 |
+| **Writer Agent** | 文章撰写 | 根据主题和风格撰写文章、按照大纲逐段生成、支持局部重写和润色 |
+| **Review Agent** | 审查文章质量和是否违规 | 内容质量评分、敏感词和违规检测、生成修改建议、提供优化方向 |
+
+### 核心流程说明
+
+#### 文章生成流程
+
+```
+用户输入 → Boss Agent (任务调度) → System Agent (获取风格配置) → Summary Agent (分析上下文) → RAG Pipeline (检索相关知识) → Writer Agent (撰写文章) → Review Agent (质量审查) → 输出文章
+```
+
+#### RAG 处理流程
+
+```
+原始文档 → Document Washer (清洗) → Chunker (分块) → Embedding Service (向量化) → Vector DB (存储)
+
+查询时: 查询文本 → Embedding (向量化) → Searcher (向量检索 Top-K*2) → Reranker (精排 Top-K) → 返回结果
+```
+
+#### Gateway 层工作流程
+
+```
+接收请求 → 任务创建 → BossAgent调度 → Agent执行 → 状态监控 → 结果返回
+```
+
 ### 技术特点
 - **多 LLM 提供商支持**：集成 OpenAI 和本地 Ollama 模型
 - **Agent 协作**：5 个核心 Agent 协同工作，实现复杂任务处理
@@ -31,45 +83,76 @@
 
 ## 项目结构
 
+项目采用清晰的分层架构，确保职责分离：
+
 ```
 eleven_blog_tunner/
-├── __init__.py              # 包初始化
+├── __init__.py              # 包初始化，版本信息
 ├── main.py                  # FastAPI 应用入口
+│
 ├── core/                    # 核心层 - 基础设施
-│   ├── config.py            # 统一配置管理
-│   └── exceptions.py        # 自定义异常类
+│   ├── __init__.py
+│   ├── config.py            # 统一配置管理 (pydantic-settings)
+│   ├── exceptions.py        # 自定义异常类
+│   ├── cache.py             # 缓存模块
+│   └── connection_pool.py   # 连接池管理
+│
 ├── agents/                  # Agent 层 - AI 智能体
+│   ├── __init__.py
 │   ├── base_agent.py        # Agent 抽象基类
+│   ├── agent_protocol.py    # Agent 通信协议
 │   ├── boss_agent.py        # Boss Agent (任务调度)
 │   ├── system_agent.py      # System Agent (系统查询)
 │   ├── summary_agent.py     # Summary Agent (总结逻辑)
 │   ├── writer_agent.py      # Writer Agent (文章撰写)
 │   └── review_agent.py      # Review Agent (内容审查)
+│
 ├── rag/                     # RAG 层 - 检索增强生成
+│   ├── __init__.py
 │   ├── document_washer.py   # 文档清洗
 │   ├── chunker.py           # 文档分块
 │   ├── embedding.py         # 向量化服务
 │   ├── searcher.py          # 向量检索
 │   ├── reranker.py          # 结果重排序
-│   └── pipeline.py          # RAG 处理管道
+│   ├── pipeline.py          # RAG 处理管道
+│   ├── note_importer.py     # 笔记导入
+│   ├── style_learner.py     # 风格学习
+│   ├── style_manager.py     # 风格管理
+│   └── vector_db_optimize.py # 向量数据库优化
+│
 ├── llm/                     # LLM 层 - 大语言模型
+│   ├── __init__.py
 │   ├── base.py              # LLM 抽象基类
 │   ├── openai_provider.py   # OpenAI 提供商实现
 │   ├── local_provider.py    # 本地 Ollama 提供商实现
 │   ├── factory.py           # LLM 工厂
 │   └── memory.py            # 记忆管理
+│
 ├── tools/                   # Tools 层 - 工具集
+│   ├── __init__.py
 │   ├── registry.py          # 工具注册中心
 │   ├── agent_caller.py      # Agent 调用器
 │   ├── mcp_tools.py         # MCP 工具集管理
 │   └── skill_manager.py     # Skill 管理器
+│
 ├── api/                     # API 层 - HTTP 接口
+│   ├── __init__.py
 │   └── routes/              # 路由定义
+│
 ├── utils/                   # 工具层 - 通用工具
-│   └── logger.py            # 日志系统
+│   ├── __init__.py
+│   └── logger.py            # 日志系统 (loguru)
+│
 └── common/                  # Common 层 - 公共工具
-    └── env_utils.py         # 环境变量加载工具
+    └── __init__.py
 ```
+
+### 架构设计原则
+
+1. **分层架构**：API 层、Gateway 层、Core 层、Agent 层、RAG 层、LLM 层、Tools 层
+2. **模块化设计**：每个模块独立负责特定功能，模块间通过接口通信
+3. **可扩展性**：支持多 LLM 提供商、插件化工具注册机制、可插拔的 RAG 组件
+4. **异常处理体系**：分层异常、标准化错误响应、详细错误信息、可追踪性
 
 ## 安装说明
 
@@ -77,7 +160,7 @@ eleven_blog_tunner/
 
 1. **克隆项目**
    ```bash
-   git clone <项目仓库地址>
+   git clone https://github.com/ELEVENADS/eleven_blog_turner.git
    cd ELEVEN_BLOG_TUNNER
    ```
 
@@ -131,22 +214,33 @@ gunicorn eleven_blog_tunner.main:app -w 4 -k uvicorn.workers.UvicornWorker
 
 ### 已完成
 - ✅ 基础架构搭建
-- ✅ 统一配置管理
+- ✅ 统一配置管理 (pydantic-settings)
 - ✅ 异常处理体系
-- ✅ 日志系统集成
+- ✅ 日志系统集成 (loguru)
 - ✅ 数据库模型设计
 - ✅ 单元测试框架
 - ✅ OpenAI 提供商实现
 - ✅ 本地 Ollama 提供商实现
 - ✅ LLM 工厂模式优化
+- ✅ 向量数据库 (Chroma)
+- ✅ RAG Pipeline (清洗→分块→向量化→检索→重排)
+- ✅ 文档处理 (Markdown/TXT/PDF)
+- ✅ Embedding 服务
+- ✅ 向量检索与重排序
+- ✅ 工具注册中心
+- ✅ Agent 调用器
+- ✅ 缓存模块
+- ✅ 连接池管理
+- ✅ Agent 间通信协议
+- ✅ 前端界面 (Vue3)
+- ✅ 用户认证和权限管理 (JWT + bcrypt)
+- ✅ Gateway 层任务调度
+- ✅ 风格学习与风格管理
+- ✅ 记忆系统实现
 
 ### 待完成
-- 🔄 记忆系统实现
-- 🔄 Agent 核心功能
-- 🔄 RAG 与知识库
-- 🔄 文章生成与发布
-- 🔄 前端界面
-- 🔄 测试与部署
+- [ ] 实现文章发布功能 (对接博客平台)
+- [ ] 测试与部署
 
 ## 使用方法
 

@@ -44,14 +44,34 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/pages/ArticleDetail.vue')
       },
       {
-        path: 'styles',
-        name: 'Styles',
-        component: Styles
+        path: 'articles/new',
+        name: 'ArticleNew',
+        component: () => import('@/pages/ArticleEdit.vue')
+      },
+      {
+        path: 'articles/:id/edit',
+        name: 'ArticleEdit',
+        component: () => import('@/pages/ArticleEdit.vue')
       },
       {
         path: 'notes',
         name: 'Notes',
         component: () => import('@/pages/Notes.vue')
+      },
+      {
+        path: 'notes/new',
+        name: 'NoteNew',
+        component: () => import('@/pages/NoteEdit.vue')
+      },
+      {
+        path: 'notes/:id/edit',
+        name: 'NoteEdit',
+        component: () => import('@/pages/NoteEdit.vue')
+      },
+      {
+        path: 'styles',
+        name: 'Styles',
+        component: Styles
       },
       {
         path: 'settings',

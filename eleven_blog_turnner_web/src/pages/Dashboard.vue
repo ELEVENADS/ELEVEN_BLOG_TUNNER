@@ -1,8 +1,8 @@
 <template>
   <div class="dashboard">
-    <t-card title="欢迎使用 ELEVEN Blog Tuner" bordered>
-      <template #avatar>
-        <t-icon name="dashboard" />
+    <t-card title="欢迎使用 Blog Tuner By ELEVEN" bordered> 
+      <template #avatar >
+        <t-icon name="face-retouching" size="64px"/>
       </template>
       <p>AI 博客生成助手，帮助您根据个人笔记学习写作风格，生成具有个人文笔特色的博客文章。</p>
     </t-card>
@@ -11,7 +11,7 @@
       <t-col :span="3">
         <t-card class="stat-card">
           <div class="stat-icon">
-            <t-icon name="document" size="32px" />
+            <t-icon name="pen-brush" size="32px" />
           </div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.articles }}</div>
@@ -33,7 +33,7 @@
       <t-col :span="3">
         <t-card class="stat-card">
           <div class="stat-icon">
-            <t-icon name="file-pen" size="32px" />
+            <t-icon name="pen" size="32px" />
           </div>
           <div class="stat-content">
             <div class="stat-value">{{ stats.notes }}</div>

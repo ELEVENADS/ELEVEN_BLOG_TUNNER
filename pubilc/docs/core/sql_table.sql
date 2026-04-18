@@ -41,6 +41,9 @@ CREATE TABLE note_categories (
 CREATE INDEX idx_note_categories_user_id ON note_categories(user_id);
 CREATE INDEX idx_note_categories_parent_id ON note_categories(parent_id);
 
+-- 给 note_categories 添加 type 字段
+ALTER TABLE note_categories ADD COLUMN type VARCHAR(20) DEFAULT 'all';
+
 -- ============================================
 -- 3. 标签表 (tags)
 -- ============================================
@@ -163,8 +166,12 @@ CREATE TABLE articles (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     published_at TIMESTAMP,
-    deleted_at TIMESTAMP
+    deleted_at TIMESTAMP,
+    category_id UUID REFERENCES note_categories(id) ON DELETE SET NULL
 );
+
+-- 给 articles 添加 category_id 字段
+ALTER TABLE articles ADD COLUMN category_id UUID REFERENCES note_categories(id);
 
 CREATE INDEX idx_articles_user_id ON articles(user_id);
 CREATE INDEX idx_articles_style_id ON articles(style_id);

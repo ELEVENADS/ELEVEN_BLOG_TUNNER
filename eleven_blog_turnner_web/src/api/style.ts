@@ -29,27 +29,27 @@ export interface LearnStyleRequest {
 
 export const styleApi = {
   learnStyle: async (data: LearnStyleRequest): Promise<ApiResponse<Style>> => {
-    const response = await apiClient.post<any, ApiResponse<Style>>('/styles/learn', data)
-    return response
+    const response = await apiClient.post<ApiResponse<Style>>('/styles/learn', data)
+    return response.data
   },
 
   getStyleList: async (): Promise<ApiResponse<{ styles: string[] }>> => {
-    const response = await apiClient.get<any, ApiResponse<{ styles: string[] }>>('/styles/list')
-    return response
+    const response = await apiClient.get<ApiResponse<{ styles: string[] }>>('/styles/list')
+    return response.data
   },
 
   getStyleDetail: async (styleName: string): Promise<ApiResponse<Style>> => {
-    const response = await apiClient.get<any, ApiResponse<Style>>(`/styles/${styleName}`)
-    return response
+    const response = await apiClient.get<ApiResponse<Style>>(`/styles/${styleName}`)
+    return response.data
   },
 
   deleteStyle: async (styleName: string): Promise<ApiResponse<null>> => {
-    const response = await apiClient.delete<any, ApiResponse<null>>(`/styles/${styleName}`)
-    return response
+    const response = await apiClient.delete<ApiResponse<null>>(`/styles/${styleName}`)
+    return response.data
   },
 
   getStyleReferences: async (styleName: string, topK: number = 5): Promise<ApiResponse<{ references: { content: string; score: number }[] }>> => {
-    const response = await apiClient.get<any, ApiResponse<{ references: { content: string; score: number }[] }>>(`/styles/${styleName}/references?top_k=${topK}`)
-    return response
+    const response = await apiClient.get<ApiResponse<{ references: { content: string; score: number }[] }>>(`/styles/${styleName}/references?top_k=${topK}`)
+    return response.data
   }
 }

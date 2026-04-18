@@ -1,7 +1,8 @@
 """
 数据库模型定义
 """
-from sqlalchemy import Column, String, Boolean, DateTime, create_engine
+from sqlalchemy import Column, String, Boolean, DateTime, create_engine, Integer, Text, Float
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -41,6 +42,72 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+class NoteCategory(Base):
+    """笔记分类模型"""
+    __tablename__ = "note_categories"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    parent_id = Column(UUID(as_uuid=True), index=True)
+    name = Column(String(100), nullable=False)
+    type = Column(String(20), default="all")
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Note(Base):
+    """笔记模型"""
+    __tablename__ = "notes"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    category_id = Column(UUID(as_uuid=True), index=True)
+    title = Column(String(200), nullable=False)
+    content = Column(Text, nullable=False)
+    source_type = Column(String(20), nullable=False)
+    file_path = Column(String(500))
+    file_size = Column(Integer)
+    word_count = Column(Integer, default=0)
+    embedding_id = Column(String(100))
+    is_vectorized = Column(Boolean, default=False)
+    status = Column(String(20), default="active")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime)
+
+
+class Article(Base):
+    """文章模型"""
+    __tablename__ = "articles"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    user_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    category_id = Column(UUID(as_uuid=True), index=True)
+    style_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    title = Column(String(200), nullable=False)
+    outline = Column(JSON)
+    content = Column(Text)
+    source_topic = Column(String(500))
+    status = Column(String(20), default="draft")
+    quality_score = Column(Float)
+    fluency_score = Column(Float)
+    originality_score = Column(Float)
+    style_match_score = Column(Float)
+    completeness_score = Column(Float)
+    readability_score = Column(Float)
+    word_count = Column(Integer, default=0)
+    version = Column(Integer, default=1)
+    parent_id = Column(UUID(as_uuid=True), index=True)
+    review_id = Column(UUID(as_uuid=True), index=True)
+    published_platform = Column(String(50))
+    published_url = Column(String(500))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    published_at = Column(DateTime)
+    deleted_at = Column(DateTime)
 
 
 def create_tables():

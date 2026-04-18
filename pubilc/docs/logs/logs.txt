@@ -1,9 +1,38 @@
 {
-  "code": "200",
-  "data": {
-    "task_id": "9deb6830-88dc-4b66-86f2-2f1944354f4b",
-    "status": "created",
-    "message": "任务创建成功"
-  },
-  "message": "任务创建成功"
+    "code": "200",
+    "data": {
+        "tree": [
+            {
+                "id": "notes-root",
+                "label": "笔记",
+                "type": "folder",
+                "children": [
+                    {
+                        "id": "22d9253f-d17e-4787-acae-03a6c9fa8f53",
+                        "label": "123",
+                        "type": "folder",
+                        "children": [],
+                        "data": null
+                    }
+                ],
+                "data": null
+            },
+            {
+                "id": "articles-root",
+                "label": "文章",
+                "type": "folder",
+                "children": [
+                    {
+                        "id": "47630973-4f4a-4123-8965-e9a04e571579",
+                        "label": "234",
+                        "type": "folder",
+                        "children": [],
+                        "data": null
+                    }
+                ],
+                "data": null
+            }
+        ]
+    },
+    "message": "获取文件树成功"
 }

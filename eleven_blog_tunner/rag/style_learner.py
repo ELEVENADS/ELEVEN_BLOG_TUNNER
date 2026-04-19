@@ -1,9 +1,12 @@
 """
 风格学习模块
+
+从文本中提取写作风格特征，包括词汇、句式、结构和写作习惯等维度
 """
 import re
+import jieba
 from typing import Dict, List, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from eleven_blog_tunner.rag.embedding import EmbeddingService
 
 
@@ -11,9 +14,9 @@ from eleven_blog_tunner.rag.embedding import EmbeddingService
 class StyleFeatures:
     """风格特征"""
     # 词汇特征
-    vocabulary_diversity: float  # 词汇多样性
+    vocabulary_diversity: float  # 词汇多样性 (0-1)
     average_word_length: float   # 平均词长
-    unique_words_ratio: float    # 独特词比例
+    unique_words_ratio: float    # 独特词比例 (0-1)
     
     # 句式特征
     average_sentence_length: float  # 平均句长
@@ -41,6 +44,8 @@ class StyleLearner:
             '递进词': ['而且', '并且', '此外', '另外', '不仅', '甚至'],
             '因果词': ['因为', '所以', '因此', '由于', '结果', '导致']
         }
+        self.first_person_pronouns = ['我', '我们', '咱', '咱们', 'my', 'our', 'mine', 'ours']
+        self.passive_markers = ['被', '由', '让', '使', '叫', '遭', '受', 'is', 'was', 'were', 'been']
     
     async def learn_style(self, text: str) -> Dict[str, Any]:
         """
@@ -52,14 +57,11 @@ class StyleLearner:
         Returns:
             风格特征和向量
         """
-        # 提取风格特征
         features = self._extract_features(text)
-        
-        # 生成风格向量
         style_vector = await self._generate_style_vector(text, features)
         
         return {
-            'features': features.__dict__,
+            'features': asdict(features),
             'vector': style_vector
         }
     
@@ -67,106 +69,179 @@ class StyleLearner:
         """
         提取风格特征
         """
-        # 词汇特征
-        words = re.findall(r'\b\w+\b', text)
+        if not text or not text.strip():
+            return self._get_empty_features()
+        
+        words = self._tokenize_text(text)
         unique_words = set(words)
         vocabulary_diversity = len(unique_words) / len(words) if words else 0
         average_word_length = sum(len(word) for word in words) / len(words) if words else 0
         unique_words_ratio = len(unique_words) / len(words) if words else 0
         
-        # 句式特征
-        sentences = re.split(r'[。！？.!?]\s*', text)
-        sentences = [s for s in sentences if s.strip()]
+        sentences = self._split_sentences(text)
         average_sentence_length = sum(len(s) for s in sentences) / len(sentences) if sentences else 0
         sentence_complexity = self._calculate_sentence_complexity(sentences)
-        punctuation_density = len(re.findall(r'[。！？.,!?]', text)) / len(text) if text else 0
+        punctuation_density = self._calculate_punctuation_density(text)
         
-        # 结构特征
-        paragraphs = re.split(r'\n\s*\n', text)
-        paragraphs = [p for p in paragraphs if p.strip()]
+        paragraphs = self._split_paragraphs(text)
         paragraph_average_length = sum(len(p) for p in paragraphs) / len(paragraphs) if paragraphs else 0
-        transition_words_ratio = self._calculate_transition_words_ratio(text)
+        transition_words_ratio = self._calculate_transition_words_ratio(text, words)
         
-        # 写作习惯
-        passive_voice_ratio = self._calculate_passive_voice_ratio(text)
-        first_person_ratio = self._calculate_first_person_ratio(text)
-        emoji_usage = len(re.findall(r'[\u2600-\u27BF\uD83C-\uDBFF\uDC00-\uDFFF]', text)) / len(text) if text else 0
+        passive_voice_ratio = self._calculate_passive_voice_ratio(text, sentences)
+        first_person_ratio = self._calculate_first_person_ratio(text, words)
+        emoji_usage = self._calculate_emoji_usage(text)
         
         return StyleFeatures(
-            vocabulary_diversity=vocabulary_diversity,
-            average_word_length=average_word_length,
-            unique_words_ratio=unique_words_ratio,
-            average_sentence_length=average_sentence_length,
-            sentence_complexity=sentence_complexity,
-            punctuation_density=punctuation_density,
-            paragraph_average_length=paragraph_average_length,
-            transition_words_ratio=transition_words_ratio,
-            passive_voice_ratio=passive_voice_ratio,
-            first_person_ratio=first_person_ratio,
-            emoji_usage=emoji_usage
+            vocabulary_diversity=round(vocabulary_diversity, 4),
+            average_word_length=round(average_word_length, 4),
+            unique_words_ratio=round(unique_words_ratio, 4),
+            average_sentence_length=round(average_sentence_length, 4),
+            sentence_complexity=round(sentence_complexity, 4),
+            punctuation_density=round(punctuation_density, 4),
+            paragraph_average_length=round(paragraph_average_length, 4),
+            transition_words_ratio=round(transition_words_ratio, 4),
+            passive_voice_ratio=round(passive_voice_ratio, 4),
+            first_person_ratio=round(first_person_ratio, 4),
+            emoji_usage=round(emoji_usage, 4)
         )
+    
+    def _get_empty_features(self) -> StyleFeatures:
+        """返回空特征"""
+        return StyleFeatures(
+            vocabulary_diversity=0.0,
+            average_word_length=0.0,
+            unique_words_ratio=0.0,
+            average_sentence_length=0.0,
+            sentence_complexity=0.0,
+            punctuation_density=0.0,
+            paragraph_average_length=0.0,
+            transition_words_ratio=0.0,
+            passive_voice_ratio=0.0,
+            first_person_ratio=0.0,
+            emoji_usage=0.0
+        )
+    
+    def _tokenize_text(self, text: str) -> List[str]:
+        """分词处理"""
+        text = re.sub(r'<[^>]+>', '', text)
+        text = re.sub(r'[*_~`#]+', '', text)
+        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+        
+        words = jieba.lcut(text)
+        words = [w.strip() for w in words if w.strip() and not re.match(r'^[^\w\s]+$', w)]
+        
+        return words
+    
+    def _split_sentences(self, text: str) -> List[str]:
+        """分割句子"""
+        sentences = re.split(r'[。！？.!?;；]+', text)
+        sentences = [s.strip() for s in sentences if s.strip()]
+        return sentences
+    
+    def _split_paragraphs(self, text: str) -> List[str]:
+        """分割段落"""
+        paragraphs = re.split(r'\n\s*\n', text)
+        paragraphs = [p.strip() for p in paragraphs if p.strip()]
+        return paragraphs
     
     def _calculate_sentence_complexity(self, sentences: List[str]) -> float:
         """
         计算句式复杂度
+        基于从句数量和标点符号计算
         """
         if not sentences:
-            return 0
+            return 0.0
         
-        complexity = 0
+        total_complexity = 0.0
         for sentence in sentences:
-            # 基于从句数量和标点符号计算复杂度
-            clause_count = len(re.findall(r'[，,；;]', sentence))
-            complexity += clause_count
+            clause_markers = len(re.findall(r'[，,；;：:]', sentence))
+            for category, words in self.transition_words.items():
+                for word in words:
+                    if word in sentence:
+                        clause_markers += 1
+            
+            total_complexity += clause_markers
         
-        return complexity / len(sentences)
+        return total_complexity / len(sentences)
     
-    def _calculate_transition_words_ratio(self, text: str) -> float:
-        """
-        计算过渡词比例
-        """
+    def _calculate_punctuation_density(self, text: str) -> float:
+        """计算标点密度"""
+        if not text:
+            return 0.0
+        
+        punctuation_count = len(re.findall(r'[。！？.!?，,；;：:""''""（）()【】\[\]{}]', text))
+        total_chars = len(text.replace(' ', '').replace('\n', '').replace('\t', ''))
+        
+        return punctuation_count / total_chars if total_chars > 0 else 0.0
+    
+    def _calculate_transition_words_ratio(self, text: str, words: List[str]) -> float:
+        """计算过渡词比例"""
+        if not words:
+            return 0.0
+        
         transition_count = 0
-        for category, words in self.transition_words.items():
-            for word in words:
-                transition_count += text.count(word)
+        for category, trans_words in self.transition_words.items():
+            for word in trans_words:
+                transition_count += words.count(word)
         
-        total_words = len(re.findall(r'\b\w+\b', text))
-        return transition_count / total_words if total_words else 0
+        return transition_count / len(words)
     
-    def _calculate_passive_voice_ratio(self, text: str) -> float:
-        """
-        计算被动语态比例
-        """
-        # 简单检测被动语态（基于"被"、"由"等标记）
-        passive_markers = ['被', '由', '让', '使', '叫']
+    def _calculate_passive_voice_ratio(self, text: str, sentences: List[str]) -> float:
+        """计算被动语态比例"""
+        if not sentences:
+            return 0.0
+        
         passive_count = 0
-        for marker in passive_markers:
-            passive_count += text.count(marker)
+        for sentence in sentences:
+            for marker in self.passive_markers:
+                if marker in sentence:
+                    passive_count += 1
+                    break
         
-        total_sentences = len(re.split(r'[。！？.!?]\s*', text))
-        return passive_count / total_sentences if total_sentences else 0
+        return passive_count / len(sentences)
     
-    def _calculate_first_person_ratio(self, text: str) -> float:
-        """
-        计算第一人称比例
-        """
-        first_person_pronouns = ['我', '我们', '咱', '咱们']
-        first_person_count = 0
-        for pronoun in first_person_pronouns:
-            first_person_count += text.count(pronoun)
+    def _calculate_first_person_ratio(self, text: str, words: List[str]) -> float:
+        """计算第一人称比例"""
+        if not words:
+            return 0.0
         
-        total_words = len(re.findall(r'\b\w+\b', text))
-        return first_person_count / total_words if total_words else 0
+        first_person_count = sum(words.count(p) for p in self.first_person_pronouns)
+        
+        return first_person_count / len(words)
+    
+    def _calculate_emoji_usage(self, text: str) -> float:
+        """计算表情符号使用率"""
+        if not text:
+            return 0.0
+        
+        emoji_pattern = re.compile(
+            "["
+            "\U0001F600-\U0001F64F"
+            "\U0001F300-\U0001F5FF"
+            "\U0001F680-\U0001F6FF"
+            "\U0001F1E0-\U0001F1FF"
+            "\U00002702-\U000027B0"
+            "\U00002600-\U000027BF"
+            "]+",
+            flags=re.UNICODE
+        )
+        
+        emoji_count = len(emoji_pattern.findall(text))
+        total_chars = len(text.replace(' ', '').replace('\n', '').replace('\t', ''))
+        
+        return emoji_count / total_chars if total_chars > 0 else 0.0
     
     async def _generate_style_vector(self, text: str, features: StyleFeatures) -> List[float]:
         """
         生成风格向量
+        结合文本语义向量和风格特征向量
         """
-        # 使用 embedding 服务生成文本的向量表示
-        # 结合风格特征作为额外维度
-        text_vector = await self.embedding_service.embed(text)
+        try:
+            text_vector = await self.embedding_service.embed(text)
+        except Exception as e:
+            print(f"Embedding 失败: {e}，使用特征向量")
+            text_vector = [0.0] * 128
         
-        # 提取特征值作为向量的一部分
         feature_values = [
             features.vocabulary_diversity,
             features.average_word_length,
@@ -181,20 +256,23 @@ class StyleLearner:
             features.emoji_usage
         ]
         
-        # 合并文本向量和特征向量
         style_vector = text_vector + feature_values
         return style_vector
     
     def compare_styles(self, style1: Dict[str, Any], style2: Dict[str, Any]) -> float:
         """
         比较两种风格的相似度
+        使用余弦相似度
         """
-        from scipy.spatial.distance import cosine
-        import numpy as np
-        
-        vector1 = np.array(style1['vector'])
-        vector2 = np.array(style2['vector'])
-        
-        # 计算余弦相似度
-        similarity = 1 - cosine(vector1, vector2)
-        return similarity
+        try:
+            import numpy as np
+            from scipy.spatial.distance import cosine
+            
+            vector1 = np.array(style1['vector'])
+            vector2 = np.array(style2['vector'])
+            
+            similarity = 1 - cosine(vector1, vector2)
+            return float(similarity)
+        except Exception as e:
+            print(f"风格比较失败: {e}")
+            return 0.0

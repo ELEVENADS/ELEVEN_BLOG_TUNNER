@@ -305,23 +305,48 @@ class TaskManager:
     async def _process_style_analysis(self, task: Task):
         """处理风格分析任务"""
         task.add_step("开始风格分析")
-        task.update_progress(30)
+        task.update_progress(20)
         
-        # 调用 SystemAgent 进行风格分析
-        context = AgentContext(
-            task_id=task.task_id,
-            user_input=task.input_data
-        )
-        
-        result = await self.protocol.call_agent(
-            caller="Gateway",
-            callee="SystemAgent",
-            input_data=task.input_data
-        )
-        
-        task.update_progress(80)
-        task.add_step("风格分析完成")
-        task.set_result(result.get("result", "分析失败"))
+        try:
+            import json
+            input_data = json.loads(task.input_data) if isinstance(task.input_data, str) else task.input_data
+            
+            text = input_data.get('text', '')
+            style_name = input_data.get('style_name', 'default_style')
+            metadata = input_data.get('metadata', {})
+            
+            if not text:
+                task.set_error("文本内容为空")
+                return
+            
+            task.add_step(f"准备分析风格: {style_name}")
+            task.update_progress(40)
+            
+            from eleven_blog_tunner.rag.style_manager import StyleManager
+            style_manager = StyleManager()
+            
+            task.add_step("提取文本特征")
+            task.update_progress(60)
+            
+            style_data = await style_manager.extract_style(text, style_name, metadata)
+            
+            task.add_step("生成风格向量")
+            task.update_progress(80)
+            
+            result = {
+                'name': style_data['name'],
+                'features': style_data['features'],
+                'vector_length': len(style_data['vector']),
+                'sample_count': style_data.get('sample_count', 1),
+                'created_at': style_data.get('created_at')
+            }
+            
+            task.add_step("风格分析完成")
+            task.update_progress(100)
+            task.set_result(result)
+            
+        except Exception as e:
+            task.set_error(f"风格分析失败: {str(e)}")
     
     async def _process_article_review(self, task: Task):
         """处理文章审查任务"""

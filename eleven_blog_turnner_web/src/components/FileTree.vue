@@ -578,12 +578,16 @@ const handleDragLeave = (ctx: any) => {
 }
 
 const handleDrop = async (ctx: any) => {
-  console.log('handleDrop:', ctx)
+  console.log('handleDrop - ctx 类型:', Object.keys(ctx))
   
   try {
     const { dragNode, dropNode, dropPosition } = ctx
     const sourceNode = dragNode?.data || dragNode
     const targetNode = dropNode?.data || dropNode
+
+    console.log('handleDrop - sourceNode:', sourceNode)
+    console.log('handleDrop - targetNode:', targetNode)
+    console.log('handleDrop - dropPosition:', dropPosition)
 
     if (!sourceNode || sourceNode.type === 'root') {
       MessagePlugin.warning('无法移动根节点')
@@ -609,27 +613,51 @@ const handleDrop = async (ctx: any) => {
       return
     }
 
+    console.log('handleDrop - 解析结果:', { actualNodeId, nodeType, sourceNodeType: sourceNode.type, sourceNodeId: sourceNode.id })
+
     // 确定目标父节点
-    if (dropPosition === 'inside') {
+    // TDesign dropPosition: 0=作为子节点, 1=上方, -1=下方
+    if (dropPosition === 0) {
       // 拖入目标节点内部
-      if (targetNode.type === 'folder' || targetNode.type === 'root') {
+      if (targetNode.type === 'folder') {
         if (targetNode.id === 'notes-root' || targetNode.id === 'articles-root') {
-          // 根目录
           targetParentId = undefined
         } else {
-          targetParentId = targetNode.type === 'root' ? undefined : targetNode.id
+          targetParentId = targetNode.id
         }
-      } else {
-        MessagePlugin.warning('只能拖入文件夹或根目录')
+      } else if (targetNode.type === 'note' || targetNode.type === 'article') {
+        MessagePlugin.warning('只能拖入文件夹')
         return
+      } else {
+        targetParentId = undefined
       }
     } else {
-      // 拖到目标节点的上方或下方 - 简化处理，不处理这种情况
-      MessagePlugin.warning('请拖入文件夹内部')
-      return
+      // 拖到目标节点的上方(1)或下方(-1)，找到目标节点的父节点
+      const targetParentNode = dropNode?.parent
+      if (!targetParentNode) {
+        targetParentId = undefined
+      } else if (targetParentNode.data?.id === 'notes-root' || targetParentNode.data?.id === 'articles-root') {
+        targetParentId = undefined
+      } else if (targetParentNode.data?.type === 'folder') {
+        targetParentId = targetParentNode.data.id
+      } else {
+        targetParentId = undefined
+      }
     }
 
-    console.log('移动节点:', { node_id: actualNodeId, node_type: nodeType, target_parent_id: targetParentId })
+    // 防止循环引用：不能将文件夹拖到自己的子文件夹中
+    if (sourceNode.type === 'folder' && targetParentId) {
+      let currentNode = dropNode
+      while (currentNode) {
+        if (currentNode.data?.id === sourceNode.id) {
+          MessagePlugin.warning('不能将文件夹移动到自己的子文件夹中')
+          return
+        }
+        currentNode = currentNode?.parent
+      }
+    }
+
+    console.log('移动节点 - 发送请求:', { node_id: actualNodeId, node_type: nodeType, target_parent_id: targetParentId })
 
     // 调用移动接口
     await fileTreeApi.moveNode({
@@ -641,7 +669,7 @@ const handleDrop = async (ctx: any) => {
     MessagePlugin.success('移动成功')
     fetchFileTree()
   } catch (error) {
-    console.error('移动失败:', error)
+    console.error('移动失败 - 错误详情:', error)
     MessagePlugin.error('移动失败')
   }
 }

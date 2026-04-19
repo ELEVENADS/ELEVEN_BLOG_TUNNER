@@ -133,17 +133,15 @@ async def get_file_tree(
 
 def build_file_tree(categories, notes, articles):
     """构建文件树"""
-    # 创建分类节点
     category_map = {c.id: c for c in categories}
     
-    # 按 type 分组分类
     note_folders = [c for c in categories if c.type in ['note', 'all']]
     article_folders = [c for c in categories if c.type in ['article', 'all']]
     
     tree = []
     
-    # 添加笔记文件夹
-    if note_folders:
+    # 只要有笔记或笔记分类，就显示"笔记"根节点
+    if notes or note_folders:
         tree.append({
             "id": "notes-root",
             "label": "笔记",
@@ -151,8 +149,8 @@ def build_file_tree(categories, notes, articles):
             "children": build_folder_tree(note_folders, notes, 'note')
         })
     
-    # 添加文章文件夹
-    if article_folders:
+    # 只要有文章或文章分类，就显示"文章"根节点
+    if articles or article_folders:
         tree.append({
             "id": "articles-root",
             "label": "文章",

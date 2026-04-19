@@ -694,7 +694,7 @@
 
 **POST** `/api/v1/styles/learn`
 
-从文本内容学习写作风格（通过 Gateway 层处理）
+从文本内容学习写作风格（直接调用 StyleManager，不通过 Gateway 层）
 
 **请求体:**
 ```json
@@ -739,7 +739,7 @@
 
 **POST** `/api/v1/styles/learn-from-file`
 
-从上传的文件学习写作风格（通过 Gateway 层处理）
+从上传的文件学习写作风格
 
 **请求体 (FormData):**
 - `file`: 上传的文本文件
@@ -756,7 +756,93 @@
 }
 ```
 
-### 8.3 获取风格列表
+### 8.3 从笔记提取风格
+
+**POST** `/api/v1/styles/extract-from-note`
+
+从指定笔记的内容提取并学习写作风格
+
+**请求体:**
+```json
+{
+  "note_id": "550e8400-e29b-41d4-a716-446655440000",
+  "style_name": "my_style"
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "name": "my_style",
+    "features": {
+      "vocabulary_diversity": 0.75,
+      "average_word_length": 4.2,
+      "unique_words_ratio": 0.65,
+      "average_sentence_length": 25.3,
+      "sentence_complexity": 1.8,
+      "punctuation_density": 0.12,
+      "paragraph_average_length": 150.5,
+      "transition_words_ratio": 0.08,
+      "passive_voice_ratio": 0.15,
+      "first_person_ratio": 0.20,
+      "emoji_usage": 0.02
+    },
+    "vector": [0.1, 0.2, ...],
+    "metadata": {
+      "source": "note",
+      "note_id": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  },
+  "message": "从笔记提取风格成功"
+}
+```
+
+### 8.4 从文章提取风格
+
+**POST** `/api/v1/styles/extract-from-article`
+
+从指定文章的内容提取并学习写作风格
+
+**请求体:**
+```json
+{
+  "article_id": "550e8400-e29b-41d4-a716-446655440000",
+  "style_name": "my_style"
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "name": "my_style",
+    "features": {
+      "vocabulary_diversity": 0.75,
+      "average_word_length": 4.2,
+      "unique_words_ratio": 0.65,
+      "average_sentence_length": 25.3,
+      "sentence_complexity": 1.8,
+      "punctuation_density": 0.12,
+      "paragraph_average_length": 150.5,
+      "transition_words_ratio": 0.08,
+      "passive_voice_ratio": 0.15,
+      "first_person_ratio": 0.20,
+      "emoji_usage": 0.02
+    },
+    "vector": [0.1, 0.2, ...],
+    "metadata": {
+      "source": "article",
+      "article_id": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  },
+  "message": "从文章提取风格成功"
+}
+```
+
+### 8.5 获取风格列表
 
 **GET** `/api/v1/styles/list`
 
@@ -767,13 +853,21 @@
 {
   "code": "200",
   "data": {
-    "styles": ["my_style", "formal_style", "casual_style"]
+    "styles": [
+      {
+        "name": "my_style",
+        "created_at": "2026-04-19T12:00:00",
+        "updated_at": "2026-04-19T12:00:00",
+        "sample_count": 3,
+        "total_chars": 5000
+      }
+    ]
   },
   "message": "获取风格列表成功"
 }
 ```
 
-### 8.4 获取风格详情
+### 8.6 获取风格详情
 
 **GET** `/api/v1/styles/{style_name}`
 
@@ -797,7 +891,7 @@
 }
 ```
 
-### 8.5 删除风格
+### 8.7 删除风格
 
 **DELETE** `/api/v1/styles/{style_name}`
 
@@ -812,7 +906,7 @@
 }
 ```
 
-### 8.6 获取风格参考段落
+### 8.8 获取风格参考段落
 
 **GET** `/api/v1/styles/{style_name}/references`
 
@@ -829,7 +923,8 @@
     "references": [
       {
         "content": "参考段落内容...",
-        "score": 0.92
+        "char_count": 200,
+        "added_at": "2026-04-19T12:00:00"
       }
     ]
   },
@@ -837,11 +932,11 @@
 }
 ```
 
-### 8.7 预览风格特征
+### 8.9 预览风格特征
 
 **POST** `/api/v1/styles/preview`
 
-预览文本的风格特征（不保存）（通过 Gateway 层处理）
+预览文本的风格特征（不保存）
 
 **请求体 (FormData):**
 - `file`: 上传的文本文件
@@ -860,6 +955,47 @@
     "similarity": 0.85
   },
   "message": "风格预览成功"
+}
+```
+
+### 8.10 添加风格样本
+
+**POST** `/api/v1/styles/{style_name}/add-sample`
+
+为已有风格添加新的样本，系统会自动进行增量学习更新风格特征
+
+**请求体:**
+```json
+{
+  "text": "这是新的写作样本..."
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "sample_count": 4
+  },
+  "message": "样本添加成功"
+}
+```
+
+### 8.11 比较风格相似度
+
+**GET** `/api/v1/styles/{style_name1}/compare/{style_name2}`
+
+比较两种风格的相似度，返回余弦相似度分数
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "similarity": 0.85
+  },
+  "message": "风格比较成功"
 }
 ```
 

@@ -505,6 +505,11 @@ const handleDeleteFolder = async (node?: TreeNode) => {
   const targetNode = node || selectedNode.value
   if (!targetNode) return
 
+  if (targetNode.id === 'notes-root' || targetNode.id === 'articles-root') {
+    MessagePlugin.warning('根文件夹无法删除')
+    return
+  }
+
   try {
     const actualId = getActualNodeId(targetNode)
     await fileTreeApi.deleteFolder(actualId)

@@ -2,17 +2,42 @@
   <div class="notes-page">
     <t-card title="笔记管理" bordered>
       <template #actions>
-        <t-button theme="primary" @click="showUploadDialog = true">
-          <template #icon>
-            <t-icon name="upload" />
-          </template>
-          导入笔记
-        </t-button>
+        <t-space>
+          <t-input
+            v-model="searchKeyword"
+            placeholder="搜索笔记标题"
+            clearable
+            style="width: 200px"
+            @clear="handleSearch"
+            @enter="handleSearch"
+          >
+            <template #suffix-icon>
+              <t-icon name="search" @click="handleSearch" />
+            </template>
+          </t-input>
+          <t-button theme="primary" @click="handleCreateNote">
+            <template #icon>
+              <t-icon name="add" />
+            </template>
+            新建笔记
+          </t-button>
+          <t-button variant="outline" @click="showUploadDialog = true">
+            <template #icon>
+              <t-icon name="upload" />
+            </template>
+            导入笔记
+          </t-button>
+        </t-space>
       </template>
 
       <t-table :data="notes" :columns="columns" row-key="id" hover :loading="loading">
         <template #word_count="{ row }">
           {{ row.word_count || 0 }} 字
+        </template>
+        <template #source_type="{ row }">
+          <t-tag theme="default" size="small">
+            {{ sourceTypeMap[row.source_type] || row.source_type }}
+          </t-tag>
         </template>
         <template #created_at="{ row }">
           {{ formatDate(row.created_at) }}
@@ -20,7 +45,8 @@
         <template #operations="{ row }">
           <t-space>
             <t-link @click="viewNote(row.id)">查看</t-link>
-            <t-link theme="danger" @click="deleteNote(row.id)">删除</t-link>
+            <t-link @click="editNote(row.id)">编辑</t-link>
+            <t-link theme="danger" @click="confirmDelete(row)">删除</t-link>
           </t-space>
         </template>
       </t-table>
@@ -54,27 +80,40 @@
         </t-form-item>
       </t-form>
     </t-dialog>
+
+    <t-dialog
+      v-model:visible="showDeleteConfirm"
+      header="确认删除"
+      :confirm-btn="{ theme: 'danger', content: '删除' }"
+      :on-confirm="handleDelete"
+    >
+      <p>确定要删除笔记「{{ deleteTarget?.title }}」吗？此操作不可恢复。</p>
+    </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
-import apiClient from '@/utils/api'
+import { notesApi, type NoteItem } from '@/api/notes'
 
-interface Note {
-  id: string
-  title: string
-  content: string
-  word_count: number
-  created_at: string
-}
+const router = useRouter()
 
 const loading = ref(false)
-const notes = ref<Note[]>([])
+const notes = ref<NoteItem[]>([])
 const showUploadDialog = ref(false)
-const uploadFiles = ref([])
+const showDeleteConfirm = ref(false)
+const uploadFiles = ref<any[]>([])
 const uploading = ref(false)
+const searchKeyword = ref('')
+const deleteTarget = ref<NoteItem | null>(null)
+
+const sourceTypeMap: Record<string, string> = {
+  markdown: 'Markdown',
+  txt: '纯文本',
+  pdf: 'PDF'
+}
 
 const pagination = reactive({
   page: 1,
@@ -83,10 +122,11 @@ const pagination = reactive({
 })
 
 const columns = [
-  { colKey: 'title', title: '标题', width: '250' },
+  { colKey: 'title', title: '标题', ellipsis: true },
   { colKey: 'word_count', title: '字数', width: '100' },
+  { colKey: 'source_type', title: '来源', width: '120' },
   { colKey: 'created_at', title: '创建时间', width: '180' },
-  { colKey: 'operations', title: '操作', width: '150' }
+  { colKey: 'operations', title: '操作', width: '200' }
 ]
 
 onMounted(() => {
@@ -96,21 +136,26 @@ onMounted(() => {
 const fetchNotes = async () => {
   loading.value = true
   try {
-    const response = await apiClient.get('/notes', {
-      params: {
-        skip: (pagination.page - 1) * pagination.pageSize,
-        limit: pagination.pageSize
-      }
+    const result = await notesApi.getNotes({
+      skip: (pagination.page - 1) * pagination.pageSize,
+      limit: pagination.pageSize,
+      keyword: searchKeyword.value || undefined
     })
-    if (response.data?.data?.notes) {
-      notes.value = response.data.data.notes
-      pagination.total = response.data.data.total
+    if (result) {
+      notes.value = result.notes
+      pagination.total = result.total
     }
   } catch (error) {
-    console.error('Failed to fetch notes:', error)
+    console.error('获取笔记列表失败:', error)
+    MessagePlugin.error('获取笔记列表失败')
   } finally {
     loading.value = false
   }
+}
+
+const handleSearch = () => {
+  pagination.page = 1
+  fetchNotes()
 }
 
 const handleFileChange = (files: any) => {
@@ -125,14 +170,10 @@ const handleUpload = async () => {
 
   uploading.value = true
   try {
-    const formData = new FormData()
-    uploadFiles.value.forEach((file: any) => {
-      formData.append('file', file.raw || file)
-    })
-
-    await apiClient.post('/notes/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    for (const file of uploadFiles.value) {
+      const rawFile = file.raw || file
+      await notesApi.uploadNote(rawFile)
+    }
 
     MessagePlugin.success('上传成功')
     showUploadDialog.value = false
@@ -145,18 +186,36 @@ const handleUpload = async () => {
   }
 }
 
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString('zh-CN')
 }
 
-const viewNote = (id: string) => {
-  MessagePlugin.info(`查看笔记 ${id}`)
+const handleCreateNote = () => {
+  router.push({ name: 'NoteNew' })
 }
 
-const deleteNote = async (id: string) => {
+const viewNote = (id: string) => {
+  router.push({ name: 'NoteEdit', params: { id } })
+}
+
+const editNote = (id: string) => {
+  router.push({ name: 'NoteEdit', params: { id } })
+}
+
+const confirmDelete = (row: NoteItem) => {
+  deleteTarget.value = row
+  showDeleteConfirm.value = true
+}
+
+const handleDelete = async () => {
+  if (!deleteTarget.value) return
+
   try {
-    await apiClient.delete(`/notes/${id}`)
+    await notesApi.deleteNote(deleteTarget.value.id)
     MessagePlugin.success('删除成功')
+    showDeleteConfirm.value = false
+    deleteTarget.value = null
     fetchNotes()
   } catch (error) {
     MessagePlugin.error('删除失败')

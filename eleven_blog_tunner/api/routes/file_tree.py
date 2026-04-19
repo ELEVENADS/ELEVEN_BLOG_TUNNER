@@ -1,7 +1,7 @@
 """
 文件树相关 API 接口
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
@@ -106,13 +106,13 @@ async def get_file_tree(
         categories = db.query(NoteCategory).filter(
             NoteCategory.user_id == current_user.id
         ).all()
-        
+
         # 2. 获取用户的笔记
         notes = db.query(Note).filter(
             Note.user_id == current_user.id,
             Note.deleted_at.is_(None)
         ).all()
-        
+
         # 3. 获取用户的文章
         articles = db.query(Article).filter(
             Article.user_id == current_user.id,
@@ -168,28 +168,45 @@ def build_folder_tree(folders, items, item_type):
     # 按 category_id 分组
     items_by_category = {}
     for item in items:
-        cat_id = item.category_id
+        cat_id = str(item.category_id) if item.category_id else None
         if cat_id not in items_by_category:
             items_by_category[cat_id] = []
         items_by_category[cat_id].append(item)
-    
+
     result = []
+
+    # 添加未分类的项（category_id 为 None）
+    if None in items_by_category:
+        for item in items_by_category[None]:
+            result.append({
+                "id": f"{item_type}-{item.id}",
+                "label": item.title,
+                "type": item_type,
+                "data": {
+                    "id": str(item.id),
+                    "title": item.title,
+                    "content": getattr(item, 'content', None),
+                    "created_at": item.created_at.isoformat() if item.created_at else None
+                }
+            })
+
     for folder in folders:
+        folder_id_str = str(folder.id)
         node = {
-            "id": str(folder.id),
+            "id": folder_id_str,
             "label": folder.name,
             "type": "folder",
             "children": []
         }
-        
-        # 添加子文件夹
-        child_folders = [f for f in folders if f.parent_id == folder.id]
+
+        # 添加子文件夹（统一用 str 比较）
+        child_folders = [f for f in folders if str(f.parent_id) == folder_id_str]
         if child_folders:
             node["children"].extend(build_folder_tree(child_folders, items, item_type))
-        
+
         # 添加文件
-        if folder.id in items_by_category:
-            for item in items_by_category[folder.id]:
+        if folder_id_str in items_by_category:
+            for item in items_by_category[folder_id_str]:
                 node["children"].append({
                     "id": f"{item_type}-{item.id}",
                     "label": item.title,
@@ -201,9 +218,9 @@ def build_folder_tree(folders, items, item_type):
                         "created_at": item.created_at.isoformat() if item.created_at else None
                     }
                 })
-        
+
         result.append(node)
-    
+
     return result
 
 
@@ -262,6 +279,13 @@ async def delete_category(
     删除分类
     """
     try:
+        import uuid
+        # 校验 category_id 是否为合法 UUID 格式
+        try:
+            uuid.UUID(category_id)
+        except ValueError:
+            return ErrorResponse.bad_request("无效的分类ID格式")
+        
         # 检查分类是否存在
         category = db.query(NoteCategory).filter(
             NoteCategory.id == category_id,
@@ -648,6 +672,137 @@ async def delete_article(
         return ErrorResponse.internal_error("删除文章失败")
 
 
+@router.get("/notes", response_model=CommonResponse[dict])
+async def get_notes(
+    skip: int = 0,
+    limit: int = 10,
+    category_id: Optional[str] = None,
+    keyword: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取笔记列表（分页）
+    """
+    try:
+        query = db.query(Note).filter(
+            Note.user_id == current_user.id,
+            Note.deleted_at.is_(None)
+        )
+
+        if category_id:
+            query = query.filter(Note.category_id == category_id)
+
+        if keyword:
+            query = query.filter(Note.title.ilike(f"%{keyword}%"))
+
+        total = query.count()
+
+        notes = query.order_by(Note.created_at.desc()).offset(skip).limit(limit).all()
+
+        notes_list = []
+        for note in notes:
+            notes_list.append({
+                "id": str(note.id),
+                "title": note.title,
+                "word_count": note.word_count,
+                "source_type": note.source_type,
+                "category_id": note.category_id,
+                "status": note.status,
+                "is_vectorized": note.is_vectorized,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None
+            })
+
+        return SuccessResponse.build(
+            data={
+                "notes": notes_list,
+                "total": total,
+                "skip": skip,
+                "limit": limit
+            },
+            message="获取笔记列表成功"
+        )
+    except Exception as e:
+        logger.error(f"获取笔记列表失败: {e}")
+        return ErrorResponse.internal_error("获取笔记列表失败")
+
+
+@router.post("/notes/upload", response_model=CommonResponse[dict])
+async def upload_notes(
+    file: UploadFile = File(...),
+    category_id: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    上传笔记文件（支持 md/txt/pdf）
+    """
+    try:
+        import os
+        import json
+
+        upload_dir = "./temp"
+        os.makedirs(upload_dir, exist_ok=True)
+        file_path = os.path.join(upload_dir, file.filename)
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
+        content = ""
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext == ".pdf":
+            try:
+                import PyPDF2
+                with open(file_path, "rb") as f:
+                    reader = PyPDF2.PdfReader(f)
+                    for page in reader.pages:
+                        content += page.extract_text() + "\n"
+            except ImportError:
+                return ErrorResponse.internal_error("PyPDF2 未安装，无法读取 PDF 文件")
+        else:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+        cat_id = None
+        if category_id:
+            category = db.query(NoteCategory).filter(
+                NoteCategory.id == category_id,
+                NoteCategory.user_id == current_user.id
+            ).first()
+            if category:
+                cat_id = category.id
+
+        source_type = "markdown" if ext in [".md", ".markdown"] else "txt" if ext == ".txt" else "pdf"
+
+        note = Note(
+            user_id=current_user.id,
+            category_id=cat_id,
+            title=os.path.splitext(file.filename)[0],
+            content=content,
+            source_type=source_type,
+            word_count=len(content),
+            status="active"
+        )
+        db.add(note)
+        db.commit()
+        db.refresh(note)
+
+        return SuccessResponse.build(
+            data={
+                "id": str(note.id),
+                "title": note.title,
+                "word_count": note.word_count
+            },
+            message="笔记上传成功"
+        )
+    except Exception as e:
+        logger.error(f"上传笔记失败: {e}")
+        return ErrorResponse.internal_error("上传笔记失败")
+
+
 @router.get("/notes/{note_id}", response_model=CommonResponse[dict])
 async def get_note_detail(
     note_id: str,
@@ -663,10 +818,10 @@ async def get_note_detail(
             Note.user_id == current_user.id,
             Note.deleted_at.is_(None)
         ).first()
-        
+
         if not note:
             return ErrorResponse.not_found("笔记不存在")
-        
+
         return SuccessResponse.build(
             data={
                 "id": str(note.id),

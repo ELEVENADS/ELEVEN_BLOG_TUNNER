@@ -12,7 +12,7 @@
             <div class="editor-pane">
                 <div class="pane-header">编辑</div>
                 <Editor
-                    v-model="content"
+                    :value="content"
                     :plugins="plugins"
                     :placeholder="placeholder"
                     @change="handleChange"
@@ -57,20 +57,25 @@ const title = ref(props.modelValue.title)
 const content = ref(props.modelValue.content)
 
 watch(title, (newTitle) => {
+    console.log('[MarkdownEditor] title 变化:', newTitle, '当前 content:', content.value)
     emit('update:modelValue', { title: newTitle, content: content.value })
 })
 
 watch(content, (newContent) => {
+    console.log('[MarkdownEditor] content 变化:', newContent?.substring(0, 50), '当前 title:', title.value)
     emit('update:modelValue', { title: title.value, content: newContent })
 })
 
 watch(() => props.modelValue, (newVal) => {
+    console.log('[MarkdownEditor] props.modelValue 变化:', newVal)
     title.value = newVal.title
     content.value = newVal.content
 }, { deep: true })
 
 const handleChange = (value: string) => {
-    emit('change', { title: title.value, content: value })
+    console.log('[MarkdownEditor] @change 触发:', value?.substring(0, 50))
+    content.value = value
+    emit('update:modelValue', { title: title.value, content: value })
 }
 </script>
 

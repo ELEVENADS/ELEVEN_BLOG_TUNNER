@@ -8,7 +8,7 @@
                 </t-button>
             </t-space>
         </template>
-        
+
         <div class="editor-wrapper">
             <MarkdownEditor
                 v-model="noteData"
@@ -64,6 +64,8 @@ const loadNote = async () => {
 }
 
 const handleSave = async () => {
+    console.log('[NoteEdit] 保存前 noteData:', JSON.parse(JSON.stringify(noteData.value)))
+
     if (!noteData.value.title) {
         MessagePlugin.warning('请输入标题')
         return
@@ -71,6 +73,12 @@ const handleSave = async () => {
 
     saving.value = true
     try {
+        const payload = noteId.value
+            ? { title: noteData.value.title, content: noteData.value.content }
+            : { title: noteData.value.title, content: noteData.value.content, category_id: categoryId.value || undefined }
+
+        console.log('[NoteEdit] 发送给接口的 payload:', JSON.parse(JSON.stringify(payload)))
+
         if (noteId.value) {
             await fileTreeApi.updateNote(noteId.value, {
                 title: noteData.value.title,
@@ -88,7 +96,7 @@ const handleSave = async () => {
 
         router.back()
     } catch (error) {
-        console.error('保存笔记失败:', error)
+        console.error('[NoteEdit] 保存笔记失败:', error)
         MessagePlugin.error('保存失败')
     } finally {
         saving.value = false

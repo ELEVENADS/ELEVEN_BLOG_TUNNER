@@ -18,8 +18,11 @@
 ├── /config/          # 系统配置 API
 ├── /agent/          # Agent 任务 API
 ├── /knowledge/      # 知识库管理 API
+├── /notes/          # 笔记管理 API
+├── /categories/     # 分类管理 API
 ├── /styles/         # 风格学习 API
 ├── /articles/       # 文章生成 API
+├── /file-tree/      # 文件树 API
 └── /gateway/        # 网关任务管理 API
 ```
 
@@ -313,9 +316,381 @@
 
 ---
 
-## 5. 风格学习 API
+## 5. 笔记管理 API
 
-### 5.1 从文本学习风格
+### 5.1 获取笔记列表
+
+**GET** `/api/v1/notes`
+
+获取当前用户的笔记列表（分页）
+
+**查询参数:**
+- `skip`: 跳过数量 (默认 0)
+- `limit`: 返回数量 (默认 10)
+- `category_id`: 按分类筛选 (可选)
+- `keyword`: 按标题关键词搜索 (可选)
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "notes": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "title": "我的笔记",
+        "word_count": 1500,
+        "source_type": "markdown",
+        "category_id": null,
+        "status": "active",
+        "is_vectorized": false,
+        "created_at": "2026-04-18T12:00:00",
+        "updated_at": "2026-04-18T12:00:00"
+      }
+    ],
+    "total": 25,
+    "skip": 0,
+    "limit": 10
+  },
+  "message": "获取笔记列表成功"
+}
+```
+
+### 5.2 获取笔记详情
+
+**GET** `/api/v1/notes/{note_id}`
+
+获取指定笔记的详细信息
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "我的笔记",
+    "content": "笔记内容...",
+    "category_id": null,
+    "word_count": 1500,
+    "source_type": "markdown",
+    "created_at": "2026-04-18T12:00:00",
+    "updated_at": "2026-04-18T12:00:00"
+  },
+  "message": "获取笔记详情成功"
+}
+```
+
+### 5.3 创建笔记
+
+**POST** `/api/v1/notes`
+
+创建新笔记
+
+**请求体:**
+```json
+{
+  "title": "新建笔记",
+  "content": "笔记内容...",
+  "category_id": "可选的分类ID"
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "新建笔记",
+    "category_id": null
+  },
+  "message": "创建笔记成功"
+}
+```
+
+### 5.4 更新笔记
+
+**PUT** `/api/v1/notes/{note_id}`
+
+更新笔记（重命名、编辑内容、移动分类）
+
+**请求体:**
+```json
+{
+  "title": "更新后的标题",
+  "content": "更新后的内容...",
+  "category_id": "新的分类ID"
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "更新后的标题",
+    "category_id": "新的分类ID"
+  },
+  "message": "笔记更新成功"
+}
+```
+
+### 5.5 删除笔记
+
+**DELETE** `/api/v1/notes/{note_id}`
+
+删除指定笔记（软删除）
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "message": "笔记删除成功"
+  },
+  "message": "笔记删除成功"
+}
+```
+
+### 5.6 上传笔记文件
+
+**POST** `/api/v1/notes/upload`
+
+上传笔记文件（支持 Markdown/TXT/PDF）
+
+**请求体 (FormData):**
+- `file`: 上传的文件 (必填)
+- `category_id`: 所属分类ID (可选)
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "上传的文件名",
+    "word_count": 1500
+  },
+  "message": "笔记上传成功"
+}
+```
+
+### 5.7 批量导入笔记
+
+**POST** `/api/v1/notes/import`
+
+批量导入笔记（支持 Obsidian 目录结构，自动根据路径创建分类）
+
+**请求体:**
+```json
+{
+  "files": [
+    {
+      "path": "/编程/Python基础.md",
+      "content": "笔记内容...",
+      "category_id": "可选的分类ID"
+    }
+  ],
+  "auto_create_folders": true
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "success": true,
+    "imported_count": 3,
+    "notes": [
+      {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "title": "Python基础"
+      }
+    ]
+  },
+  "message": "成功导入 3 条笔记"
+}
+```
+
+### 5.8 笔记来源类型说明
+
+| 来源类型 | 说明 |
+|---------|------|
+| markdown | Markdown 文件 |
+| txt | 纯文本文件 |
+| pdf | PDF 文件 |
+
+---
+
+## 6. 分类管理 API
+
+### 6.1 创建分类
+
+**POST** `/api/v1/categories`
+
+创建文件夹/分类
+
+**请求体:**
+```json
+{
+  "name": "分类名称",
+  "type": "note",
+  "parent_id": "可选的父分类ID"
+}
+```
+
+| type 值 | 说明 |
+|---------|------|
+| all | 通用分类 |
+| note | 笔记分类 |
+| article | 文章分类 |
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "分类名称",
+    "type": "note",
+    "parent_id": null
+  },
+  "message": "创建分类成功"
+}
+```
+
+### 6.2 更新分类
+
+**PUT** `/api/v1/categories/{category_id}`
+
+更新分类（重命名、移动、排序）
+
+**请求体:**
+```json
+{
+  "name": "新名称",
+  "parent_id": "新的父分类ID",
+  "sort_order": 1
+}
+```
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "新名称",
+    "parent_id": "新的父分类ID"
+  },
+  "message": "分类更新成功"
+}
+```
+
+### 6.3 删除分类
+
+**DELETE** `/api/v1/categories/{category_id}`
+
+删除分类（分类下不能有子分类和文件）
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "message": "分类删除成功"
+  },
+  "message": "分类删除成功"
+}
+```
+
+---
+
+## 7. 文件树 API
+
+### 7.1 获取文件树
+
+**GET** `/api/v1/file-tree`
+
+获取用户的完整文件树（笔记和文章的联合树形结构）
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "tree": [
+      {
+        "id": "notes-root",
+        "label": "笔记",
+        "type": "folder",
+        "children": [
+          {
+            "id": "category-id",
+            "label": "分类名称",
+            "type": "folder",
+            "children": [
+              {
+                "id": "note-note-id",
+                "label": "笔记标题",
+                "type": "note",
+                "data": {
+                  "id": "note-id",
+                  "title": "笔记标题",
+                  "content": "笔记内容...",
+                  "created_at": "2026-04-18T12:00:00"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "message": "获取文件树成功"
+}
+```
+
+### 7.2 移动节点
+
+**POST** `/api/v1/file-tree/move`
+
+移动节点（分类/笔记/文章）
+
+**请求体:**
+```json
+{
+  "node_id": "节点ID",
+  "node_type": "category",
+  "target_parent_id": "目标父节点ID",
+  "position": 0
+}
+```
+
+| node_type 值 | 说明 |
+|-------------|------|
+| category | 分类节点 |
+| note | 笔记节点 |
+| article | 文章节点 |
+
+**响应示例:**
+```json
+{
+  "code": "200",
+  "data": {
+    "message": "节点移动成功"
+  },
+  "message": "节点移动成功"
+}
+```
+
+---
+
+## 8. 风格学习 API
+
+### 8.1 从文本学习风格
 
 **POST** `/api/v1/styles/learn`
 
@@ -360,7 +735,7 @@
 }
 ```
 
-### 5.2 从文件学习风格
+### 8.2 从文件学习风格
 
 **POST** `/api/v1/styles/learn-from-file`
 
@@ -381,7 +756,7 @@
 }
 ```
 
-### 5.3 获取风格列表
+### 8.3 获取风格列表
 
 **GET** `/api/v1/styles/list`
 
@@ -398,7 +773,7 @@
 }
 ```
 
-### 5.4 获取风格详情
+### 8.4 获取风格详情
 
 **GET** `/api/v1/styles/{style_name}`
 
@@ -422,7 +797,7 @@
 }
 ```
 
-### 5.5 删除风格
+### 8.5 删除风格
 
 **DELETE** `/api/v1/styles/{style_name}`
 
@@ -437,7 +812,7 @@
 }
 ```
 
-### 5.6 获取风格参考段落
+### 8.6 获取风格参考段落
 
 **GET** `/api/v1/styles/{style_name}/references`
 
@@ -462,7 +837,7 @@
 }
 ```
 
-### 5.7 预览风格特征
+### 8.7 预览风格特征
 
 **POST** `/api/v1/styles/preview`
 
@@ -490,9 +865,9 @@
 
 ---
 
-## 6. 文章生成 API
+## 9. 文章生成 API
 
-### 6.1 生成文章
+### 9.1 生成文章
 
 **POST** `/api/v1/articles/generate`
 
@@ -527,7 +902,7 @@
 }
 ```
 
-### 6.2 获取文章详情
+### 9.2 获取文章详情
 
 **GET** `/api/v1/articles/{article_id}`
 
@@ -554,7 +929,7 @@
 }
 ```
 
-### 6.3 获取文章列表
+### 9.3 获取文章列表
 
 **GET** `/api/v1/articles`
 
@@ -578,7 +953,7 @@
 }
 ```
 
-### 6.4 更新文章
+### 9.4 更新文章
 
 **PUT** `/api/v1/articles/{article_id}`
 
@@ -607,7 +982,7 @@
 }
 ```
 
-### 6.5 删除文章
+### 9.5 删除文章
 
 **DELETE** `/api/v1/articles/{article_id}`
 
@@ -622,7 +997,7 @@
 }
 ```
 
-### 6.6 生成大纲
+### 9.6 生成大纲
 
 **POST** `/api/v1/articles/{article_id}/outline`
 
@@ -655,7 +1030,7 @@
 }
 ```
 
-### 6.7 润色文章
+### 9.7 润色文章
 
 **POST** `/api/v1/articles/{article_id}/polish`
 
@@ -677,7 +1052,7 @@
 }
 ```
 
-### 6.8 提交审核
+### 9.8 提交审核
 
 **POST** `/api/v1/articles/{article_id}/review`
 
@@ -694,7 +1069,7 @@
 }
 ```
 
-### 6.9 审核通过
+### 9.9 审核通过
 
 **POST** `/api/v1/articles/{article_id}/approve`
 
@@ -711,7 +1086,7 @@
 }
 ```
 
-### 6.10 拒绝文章
+### 9.10 拒绝文章
 
 **POST** `/api/v1/articles/{article_id}/reject`
 
@@ -734,9 +1109,9 @@
 
 ---
 
-## 7. 文章版本管理 API
+## 10. 文章版本管理 API
 
-### 7.1 获取版本历史
+### 10.1 获取版本历史
 
 **GET** `/api/v1/articles/{article_id}/versions`
 
@@ -768,9 +1143,9 @@
 
 ---
 
-## 8. 网关任务管理 API
+## 11. 网关任务管理 API
 
-### 8.1 创建网关任务
+### 11.1 创建网关任务
 
 **POST** `/api/v1/gateway/tasks`
 
@@ -798,7 +1173,7 @@
 }
 ```
 
-### 8.2 获取任务状态
+### 11.2 获取任务状态
 
 **GET** `/api/v1/gateway/tasks/{task_id}`
 
@@ -827,7 +1202,7 @@
 }
 ```
 
-### 8.3 获取任务结果
+### 11.3 获取任务结果
 
 **GET** `/api/v1/gateway/tasks/{task_id}/result`
 
@@ -848,7 +1223,7 @@
 }
 ```
 
-### 8.4 取消任务
+### 11.4 取消任务
 
 **DELETE** `/api/v1/gateway/tasks/{task_id}`
 
@@ -866,7 +1241,7 @@
 }
 ```
 
-### 8.5 列出任务
+### 11.5 列出任务
 
 **GET** `/api/v1/gateway/tasks`
 
@@ -895,7 +1270,7 @@
 }
 ```
 
-### 8.6 健康检查
+### 11.6 健康检查
 
 **GET** `/api/v1/gateway/health`
 
@@ -917,7 +1292,7 @@
 }
 ```
 
-### 8.7 支持的任务类型
+### 11.7 支持的任务类型
 
 | 任务类型 | 说明 |
 |---------|------|
@@ -928,9 +1303,9 @@
 
 ---
 
-## 9. 文章版本管理 API
+## 12. 文章版本管理 API
 
-### 9.1 获取版本历史
+### 12.1 获取版本历史
 
 **GET** `/api/v1/articles/{article_id}/versions`
 
@@ -960,7 +1335,7 @@
 }
 ```
 
-### 9.2 获取特定版本
+### 12.2 获取特定版本
 
 **GET** `/api/v1/articles/{article_id}/versions/{version}`
 
@@ -980,7 +1355,7 @@
 }
 ```
 
-### 9.3 恢复版本
+### 12.3 恢复版本
 
 **POST** `/api/v1/articles/{article_id}/versions/{version}/restore`
 
@@ -999,7 +1374,7 @@
 
 ---
 
-## 10. 文章状态说明
+## 13. 文章状态说明
 
 | 状态 | 说明 |
 |-----|------|
@@ -1012,7 +1387,7 @@
 
 ---
 
-## 11. 响应码说明
+## 14. 响应码说明
 
 | 响应码 | HTTP 状态码 | 说明 |
 |-------|------------|------|
@@ -1026,9 +1401,9 @@
 
 ---
 
-## 12. 使用示例
+## 15. 使用示例
 
-### 12.1 完整文章生成流程
+### 15.1 完整文章生成流程
 
 ```bash
 # 1. 学习风格
@@ -1051,7 +1426,7 @@ curl -X POST http://localhost:8000/api/v1/articles/{article_id}/review
 curl -X POST http://localhost:8000/api/v1/articles/{article_id}/approve
 ```
 
-### 12.2 版本管理流程
+### 15.2 版本管理流程
 
 ```bash
 # 1. 更新文章
@@ -1066,7 +1441,7 @@ curl http://localhost:8000/api/v1/articles/{article_id}/versions
 curl -X POST http://localhost:8000/api/v1/articles/{article_id}/versions/1/restore
 ```
 
-### 12.3 Gateway 任务管理示例
+### 15.3 Gateway 任务管理示例
 
 ```bash
 # 1. 直接通过 Gateway 创建文章生成任务
@@ -1086,5 +1461,5 @@ curl http://localhost:8000/api/v1/gateway/tasks
 
 ---
 
-**文档版本**: 1.1
-**最后更新**: 2026/4/18
+**文档版本**: 1.2
+**最后更新**: 2026/4/19

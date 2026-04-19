@@ -23,6 +23,7 @@ from eleven_blog_tunner.agents.system_agent import SystemAgent
 from eleven_blog_tunner.agents.summary_agent import SummaryAgent
 from eleven_blog_tunner.agents.writer_agent import WriterAgent
 from eleven_blog_tunner.agents.review_agent import ReviewAgent
+from eleven_blog_tunner.agents.assistant_agent import AssistantAgent
 
 __all__ = [
     "BaseAgent",
@@ -40,5 +41,6 @@ __all__ = [
     "SystemAgent",
     "SummaryAgent",
     "WriterAgent",
-    "ReviewAgent"
+    "ReviewAgent",
+    "AssistantAgent"
 ]

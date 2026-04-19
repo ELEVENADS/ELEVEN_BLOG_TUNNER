@@ -3,6 +3,7 @@
 
 负责风格的存储、检索、更新和删除
 支持将风格注册为技能供 Agent 使用
+支持混合模式：规则统计 + LLM语义分析
 """
 import json
 import os
@@ -15,37 +16,64 @@ from eleven_blog_tunner.tools.skill_manager import SkillManager
 
 
 class StyleManager:
-    """风格管理器"""
+    """风格管理器 - 支持混合模式"""
     
-    def __init__(self):
-        self.learner = StyleLearner()
+    def __init__(self, use_llm: bool = True, llm_provider: str = "openai"):
+        self.learner = StyleLearner(use_llm=use_llm, llm_provider=llm_provider)
         self.skill_manager = SkillManager()
         self.style_storage = Path('./data/styles')
         self.style_storage.mkdir(parents=True, exist_ok=True)
+        self.use_llm = use_llm
     
-    async def extract_style(self, text: str, style_name: str, metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def extract_style(
+        self, 
+        text: str, 
+        style_name: str, 
+        metadata: Dict[str, Any] = None,
+        use_statistical: bool = True,
+        use_semantic: bool = True,
+        use_embedding: bool = True
+    ) -> Dict[str, Any]:
         """
-        提取风格并存储
+        提取风格并存储 - 混合模式
         
         Args:
             text: 文本内容
             style_name: 风格名称
             metadata: 元数据
+            use_statistical: 是否使用规则统计特征
+            use_semantic: 是否使用LLM语义分析
+            use_embedding: 是否使用Embedding向量
         
         Returns:
             风格信息
         """
-        style_info = await self.learner.learn_style(text)
+        # 使用混合模式学习风格
+        style_info = await self.learner.learn_style(
+            text,
+            use_statistical=use_statistical,
+            use_semantic=use_semantic and self.use_llm,
+            use_embedding=use_embedding
+        )
         
+        # 构建完整的风格数据
         style_data = {
             'name': style_name,
-            'features': style_info['features'],
+            'features': {
+                'statistical': style_info.get('statistical_features'),
+                'semantic': style_info.get('semantic_features')
+            },
             'vector': style_info['vector'],
             'metadata': metadata or {},
             'created_at': datetime.now().isoformat(),
             'updated_at': datetime.now().isoformat(),
             'sample_count': 1,
-            'total_chars': len(text)
+            'total_chars': len(text),
+            'analysis_mode': {
+                'use_statistical': use_statistical,
+                'use_semantic': use_semantic and self.use_llm,
+                'use_embedding': use_embedding
+            }
         }
         
         await self._save_style(style_name, style_data)
@@ -55,7 +83,7 @@ class StyleManager:
     
     async def update_style(self, style_name: str, text: str, metadata: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        更新风格（增量学习）
+        更新风格（增量学习）- 支持混合模式
         
         Args:
             style_name: 风格名称
@@ -67,24 +95,47 @@ class StyleManager:
         """
         existing_style = await self.load_style(style_name)
         
-        new_features = await self.learner.learn_style(text)
+        # 获取之前的分析模式
+        analysis_mode = existing_style.get('analysis_mode', {
+            'use_statistical': True,
+            'use_semantic': self.use_llm,
+            'use_embedding': True
+        })
         
-        existing_features = existing_style['features']
-        new_features_dict = new_features['features']
+        # 使用相同的模式学习新样本
+        new_style_info = await self.learner.learn_style(
+            text,
+            use_statistical=analysis_mode.get('use_statistical', True),
+            use_semantic=analysis_mode.get('use_semantic', False) and self.use_llm,
+            use_embedding=analysis_mode.get('use_embedding', True)
+        )
         
         sample_count = existing_style.get('sample_count', 1) + 1
         total_chars = existing_style.get('total_chars', 0) + len(text)
         
         alpha = 1.0 / sample_count
         
-        averaged_features = {}
-        for key in existing_features:
-            old_val = existing_features.get(key, 0.0)
-            new_val = new_features_dict.get(key, 0.0)
-            averaged_features[key] = round(old_val * (1 - alpha) + new_val * alpha, 4)
+        # 融合统计特征
+        existing_statistical = existing_style.get('features', {}).get('statistical', {})
+        new_statistical = new_style_info.get('statistical_features', {})
         
+        if existing_statistical and new_statistical:
+            averaged_statistical = {}
+            for key in existing_statistical:
+                old_val = existing_statistical.get(key, 0.0)
+                new_val = new_statistical.get(key, 0.0)
+                averaged_statistical[key] = round(old_val * (1 - alpha) + new_val * alpha, 4)
+            existing_style['features']['statistical'] = averaged_statistical
+        
+        # 语义特征：保留最新的，或进行文本融合
+        new_semantic = new_style_info.get('semantic_features')
+        if new_semantic:
+            # 简单策略：保留样本数更多的特征，或最新特征
+            existing_style['features']['semantic'] = new_semantic
+        
+        # 融合向量
         existing_vector = existing_style['vector']
-        new_vector = new_features['vector']
+        new_vector = new_style_info['vector']
         
         min_len = min(len(existing_vector), len(new_vector))
         averaged_vector = [
@@ -98,7 +149,6 @@ class StyleManager:
         if metadata:
             existing_style['metadata'].update(metadata)
         
-        existing_style['features'] = averaged_features
         existing_style['vector'] = averaged_vector
         existing_style['sample_count'] = sample_count
         existing_style['total_chars'] = total_chars
@@ -299,21 +349,48 @@ class StyleManager:
         
         return await self.extract_style(combined_text, style_name, metadata)
     
-    async def preview_style(self, text: str, style_name: str = None) -> Dict[str, Any]:
+    async def preview_style(
+        self, 
+        text: str, 
+        style_name: str = None,
+        use_statistical: bool = True,
+        use_semantic: bool = True,
+        use_embedding: bool = True
+    ) -> Dict[str, Any]:
         """
-        预览风格特征（不保存）
+        预览风格特征（不保存）- 支持混合模式
+        
+        Args:
+            text: 文本内容
+            style_name: 可选的风格名称用于对比
+            use_statistical: 是否使用规则统计特征
+            use_semantic: 是否使用LLM语义分析
+            use_embedding: 是否使用Embedding向量
         """
-        features = await self.learner.learn_style(text)
+        style_info = await self.learner.learn_style(
+            text,
+            use_statistical=use_statistical,
+            use_semantic=use_semantic and self.use_llm,
+            use_embedding=use_embedding
+        )
         
         result = {
-            'features': features['features'],
-            'vector_length': len(features['vector'])
+            'features': {
+                'statistical': style_info.get('statistical_features'),
+                'semantic': style_info.get('semantic_features')
+            },
+            'vector_length': len(style_info['vector']) if style_info.get('vector') else 0,
+            'analysis_mode': {
+                'use_statistical': use_statistical,
+                'use_semantic': use_semantic and self.use_llm,
+                'use_embedding': use_embedding
+            }
         }
         
         if style_name:
             try:
                 existing_style = await self.load_style(style_name)
-                similarity = self.learner.compare_styles(existing_style, features)
+                similarity = self.learner.compare_styles(existing_style, style_info)
                 result['similarity'] = round(similarity, 4)
             except FileNotFoundError:
                 result['similarity'] = None

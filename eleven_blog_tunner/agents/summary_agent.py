@@ -196,8 +196,8 @@ class SummaryAgent(BaseAgent):
         """
         return f"上下文总结：\n{text[:200]}..."
 
-    def _extract_style(self, text: str) -> Dict[str, Any]:
-        """提取风格
+    async def analyze_writing_style(self, text: str) -> Dict[str, Any]:
+        """使用 LLM 深度分析写作风格
 
         Args:
             text: 待分析文本
@@ -205,7 +205,70 @@ class SummaryAgent(BaseAgent):
         Returns:
             风格特征字典
         """
+        system_prompt = """你是一位专业的写作风格分析专家。请深入分析用户提供的文本，提取其写作风格特征。
+
+请从以下维度进行分析，并以 JSON 格式返回：
+{
+    "language_style": "语言风格标签，如：幽默/严肃/活泼/沉稳/犀利/温和/文艺/朴实等",
+    "tone": "语气特征，如：正式/非正式/学术/口语化/亲切/客观等",
+    "vocabulary_level": "词汇水平，如：通俗/专业/学术/文学/口语等",
+    "sentence_rhythm": "句式节奏，如：长短句交替/短句为主/长句为主/节奏明快/舒缓等",
+    "rhetoric_devices": ["使用的修辞手法，如：比喻/排比/设问/反问/夸张/对偶等"],
+    "emotional_tendency": "情感倾向，如：积极/消极/中性/热情/冷静/讽刺等",
+    "perspective": "叙述视角，如：第一人称/第三人称/客观/主观/全局/个人等",
+    "logic_structure": "逻辑结构偏好，如：总分总/递进/对比/并列/因果等",
+    "unique_habits": ["独特的表达习惯或口头禅"],
+    "target_audience": "目标读者群体，如：专业人士/大众/学生/技术从业者等",
+    "domain_characteristics": "领域特征，如：技术/文学/商业/学术/生活等",
+    "writing_quirks": "其他显著特点"
+}
+
+注意：
+1. 分析要基于文本实际内容，不要臆测
+2. 如果文本较短，某些特征可能不明显，标注为"不明显"
+3. 返回必须是有效的 JSON 格式"""
+
+        # 截取前3000字符，避免token过多
+        text_sample = text[:3000] if len(text) > 3000 else text
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"请分析以下文本的写作风格：\n\n{text_sample}"}
+        ]
+
+        try:
+            result = await self.call_llm(messages)
+            # 尝试解析 JSON
+            import json
+            import re
+
+            # 提取 JSON 部分
+            json_match = re.search(r'\{.*\}', result, re.DOTALL)
+            if json_match:
+                style_data = json.loads(json_match.group())
+                return style_data
+            else:
+                # 如果无法解析，返回原始文本
+                return {"raw_analysis": result}
+        except Exception as e:
+            return {
+                "error": f"风格分析失败: {str(e)}",
+                "raw_analysis": result if 'result' in locals() else None
+            }
+
+    def _extract_style(self, text: str) -> Dict[str, Any]:
+        """提取风格（同步版本，用于工具调用）
+
+        Args:
+            text: 待分析文本
+
+        Returns:
+            风格特征字典
+        """
+        # 这是一个同步方法，用于工具注册
+        # 实际分析应该调用 analyze_writing_style
         return {
+            "note": "请使用 analyze_writing_style 方法进行深度分析",
             "writing_style": "简洁",
             "tone": "中性偏正式",
             "vocabulary": "专业",

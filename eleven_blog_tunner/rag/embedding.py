@@ -22,7 +22,7 @@ class EmbeddingService:
             self.model_name = self.settings.local_embedding_model
             self.base_url = self.settings.local_llm_base_url
         else:
-            self.api_key = self.settings.api_key
+            self.api_key = self.settings.llm_api_key
     
     async def embed(self, text: str) -> List[float]:
         """单文本向量化"""

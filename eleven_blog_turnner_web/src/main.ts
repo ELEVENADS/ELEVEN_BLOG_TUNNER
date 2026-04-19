@@ -56,7 +56,15 @@ import {
   Progress,
   Tabs,
   TabPanel,
-  Slider
+  Slider,
+  Drawer,
+  Radio,
+  RadioGroup,
+  RadioButton,
+  Divider,
+  Alert,
+  Descriptions,
+  DescriptionsItem
 } from 'tdesign-vue-next'
 
 const app = createApp(App)
@@ -110,6 +118,14 @@ app.use(Tabs)
 app.use(TabPanel)
 app.use(Slider)
 app.use(TreeSelect)
+app.use(Drawer)
+app.use(Radio)
+app.use(RadioGroup)
+app.use(RadioButton)
+app.use(Divider)
+app.use(Alert)
+app.use(Descriptions)
+app.use(DescriptionsItem)
 
 app.config.globalProperties.$message = Message
 app.config.globalProperties.$loading = Loading

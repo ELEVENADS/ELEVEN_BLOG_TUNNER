@@ -18,6 +18,7 @@ class AgentType(Enum):
     SUMMARY = "summary"
     WRITER = "writer"
     REVIEW = "review"
+    ASSISTANT = "assistant"
 
 
 class AgentMessage(BaseModel):

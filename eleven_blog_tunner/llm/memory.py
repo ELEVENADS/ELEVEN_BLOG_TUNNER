@@ -174,7 +174,7 @@ class LongTermMemory:
             
             settings = get_settings()
             client = AsyncOpenAI(
-                api_key=settings.llm_api_key or settings.api_key,
+                api_key=settings.llm_api_key,
                 base_url=settings.llm_base_url if settings.llm_base_url else None
             )
             

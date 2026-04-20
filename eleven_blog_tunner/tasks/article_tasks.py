@@ -283,10 +283,10 @@ def _update_article_status(article_id: str, status: str, error: Optional[str] = 
                 article.status = status
                 article.updated_at = datetime.utcnow()
                 if error:
-                    # 可以将错误信息存储在 metadata 中
-                    article.metadata = article.metadata or {}
-                    article.metadata['error'] = error
-                    article.metadata['failed_at'] = datetime.utcnow().isoformat()
+                    # 可以将错误信息存储在 meta_data 中
+                    article.meta_data = article.meta_data or {}
+                    article.meta_data['error'] = error
+                    article.meta_data['failed_at'] = datetime.utcnow().isoformat()
                 db.commit()
                 logger.info(f"[Celery] 更新文章状态: article_id={article_id}, status={status}")
         finally:

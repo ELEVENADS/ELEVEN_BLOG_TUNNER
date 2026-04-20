@@ -138,7 +138,7 @@ def article_to_dict(article: Article) -> Dict[str, Any]:
         "style_name": None,  # 需要从 style_id 查询
         "status": article.status,
         "outline": article.outline,
-        "metadata": article.metadata or {},
+        "metadata": article.meta_data or {},
         "celery_task_id": article.celery_task_id,
         "created_at": article.created_at.timestamp() if article.created_at else time.time(),
         "updated_at": article.updated_at.timestamp() if article.updated_at else time.time(),
@@ -324,8 +324,8 @@ async def get_article(article_id: str, db: Session = Depends(get_db)):
                 elif task_result.state == 'FAILURE':
                     # 任务失败
                     article.status = 'failed'
-                    article.metadata = article.metadata or {}
-                    article.metadata['error'] = str(task_result.info)
+                    article.meta_data = article.meta_data or {}
+                    article.meta_data['error'] = str(task_result.info)
                     db.commit()
             except Exception as e:
                 logger.error(f"[Articles] 同步 Celery 任务状态失败: {e}")
@@ -750,23 +750,23 @@ async def generate_article_v2(
                 article.updated_at = datetime.utcnow()
                 
                 # 更新metadata
-                article.metadata = article.metadata or {}
-                article.metadata.update({
+                article.meta_data = article.meta_data or {}
+                article.meta_data.update({
                     "generated_at": datetime.utcnow().isoformat(),
                     "used_notes": result.used_notes,
                     "style_applied": result.style_applied,
                     "outline": result.outline,
                     "generation_metadata": result.metadata
                 })
-                
+
                 db.commit()
                 logger.info(f"[Articles V2] 文章生成完成: article_id={article_id}")
-                
+
             except Exception as e:
                 logger.exception(f"[Articles V2] 文章生成失败: {e}")
                 article.status = "failed"
-                article.metadata = article.metadata or {}
-                article.metadata["error"] = str(e)
+                article.meta_data = article.meta_data or {}
+                article.meta_data["error"] = str(e)
                 db.commit()
         
         # 使用后台任务执行

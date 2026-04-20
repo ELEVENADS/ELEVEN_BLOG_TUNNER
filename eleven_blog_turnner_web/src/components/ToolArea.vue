@@ -192,14 +192,10 @@
 import { ref, reactive, computed } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { assistantApi, type AssistantTaskType, type ExtractStyleFromEditorResponse } from '@/api/assistant'
+import { useEditorStore } from '@/stores/editor'
 
-// Props - 从父组件传入编辑器内容和选区
-const props = defineProps<{
-  editorContent?: string
-  selectedText?: string
-  selectionStart?: number
-  selectionEnd?: number
-}>()
+// Pinia Store - 从全局状态获取编辑器内容和选区
+const editorStore = useEditorStore()
 
 // Emits - 向父组件发送结果
 const emit = defineEmits<{
@@ -254,18 +250,17 @@ const extractedStyle = ref<ExtractStyleFromEditorResponse | null>(null)
 
 // 获取当前选中的文本
 const getSelectedText = (): string => {
-  return props.selectedText || ''
+  return editorStore.selectedText || ''
 }
 
 // 获取上下文
 const getContext = (): string => {
-  return props.editorContent || ''
+  return editorStore.editorContent || ''
 }
 
 // 检查是否有选中文本
 const hasSelection = (): boolean => {
-  const text = getSelectedText()
-  return text.length > 0
+  return editorStore.hasSelection
 }
 
 // 执行辅助任务
@@ -385,8 +380,8 @@ const handleExtractEditorStyle = async () => {
   try {
     const response = await assistantApi.extractStyleFromEditor({
       content,
-      selection_start: props.selectionStart,
-      selection_end: props.selectionEnd,
+      selection_start: editorStore.selectionStart ?? undefined,
+      selection_end: editorStore.selectionEnd ?? undefined,
       use_llm: true
     })
 

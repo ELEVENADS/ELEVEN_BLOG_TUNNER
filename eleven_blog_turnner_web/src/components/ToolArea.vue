@@ -1,92 +1,128 @@
 <template>
   <t-card title="智能工具区" :bordered="false" :header-style="{ padding: '12px' }">
     <div class="tool-area-content">
+      <!-- 选中文本预览 -->
+      <div v-if="editorStore.hasSelection" class="selected-text-preview">
+        <div class="preview-header">
+          <t-icon name="quote" />
+          <span>选中的文本 ({{ editorStore.selectionLength }} 字符)</span>
+        </div>
+        <div class="preview-content">
+          {{ editorStore.selectedText.substring(0, 100) }}
+          <span v-if="editorStore.selectedText.length > 100">...</span>
+        </div>
+      </div>
+      <div v-else class="no-selection-tip">
+        <t-icon name="tips" />
+        <span>在编辑器中选中文本以使用智能工具</span>
+      </div>
+
       <!-- 选中文本操作 -->
       <t-divider align="left">选中文本操作</t-divider>
-      <t-space direction="vertical" style="width: 100%">
-        <t-space>
-          <t-button theme="primary" @click="handleContinueWriting" :loading="loading.continue">
-            <template #icon>
-              <t-icon name="edit" />
-            </template>
-            续写
-          </t-button>
-          <t-button theme="default" @click="handleExtractStyle" :loading="loading.extract">
-            <template #icon>
-              <t-icon name="palette" />
-            </template>
-            提取风格
-          </t-button>
-          <t-button theme="default" @click="handlePolish" :loading="loading.polish">
-            <template #icon>
-              <t-icon name="brush" />
-            </template>
-            润色
-          </t-button>
-        </t-space>
-        <t-space>
-          <t-button theme="default" @click="handleExpand" :loading="loading.expand">
-            <template #icon>
-              <t-icon name="maximize" />
-            </template>
-            扩写
-          </t-button>
-          <t-button theme="default" @click="handleSummarize" :loading="loading.summarize">
-            <template #icon>
-              <t-icon name="file" />
-            </template>
-            总结
-          </t-button>
-          <t-button theme="default" @click="handleSuggest" :loading="loading.suggest">
-            <template #icon>
-              <t-icon name="tips" />
-            </template>
-            生成建议
-          </t-button>
-        </t-space>
-      </t-space>
+      <div class="button-grid">
+        <t-button theme="primary" size="small" @click="handleContinueWriting" :loading="loading.continue">
+          <template #icon>
+            <t-icon name="edit" />
+          </template>
+          续写
+        </t-button>
+        <t-button theme="default" size="small" @click="handleExtractStyle" :loading="loading.extract">
+          <template #icon>
+            <t-icon name="palette" />
+          </template>
+          提取风格
+        </t-button>
+        <t-button theme="default" size="small" @click="handlePolish" :loading="loading.polish">
+          <template #icon>
+            <t-icon name="brush" />
+          </template>
+          润色
+        </t-button>
+        <t-button theme="default" size="small" @click="handleExpand" :loading="loading.expand">
+          <template #icon>
+            <t-icon name="maximize" />
+          </template>
+          扩写
+        </t-button>
+        <t-button theme="default" size="small" @click="handleSummarize" :loading="loading.summarize">
+          <template #icon>
+            <t-icon name="file" />
+          </template>
+          总结
+        </t-button>
+        <t-button theme="default" size="small" @click="handleSuggest" :loading="loading.suggest">
+          <template #icon>
+            <t-icon name="tips" />
+          </template>
+          建议
+        </t-button>
+      </div>
 
       <!-- 改写选项 -->
       <t-divider align="left">改写风格</t-divider>
-      <t-space direction="vertical" style="width: 100%">
-        <t-radio-group v-model="rewriteStyle" variant="default-filled">
+      <div class="rewrite-section">
+        <t-radio-group v-model="rewriteStyle" variant="default-filled" size="small">
           <t-radio-button value="professional">专业</t-radio-button>
           <t-radio-button value="casual">轻松</t-radio-button>
           <t-radio-button value="academic">学术</t-radio-button>
+        </t-radio-group>
+        <t-radio-group v-model="rewriteStyle" variant="default-filled" size="small" style="margin-top: 8px;">
           <t-radio-button value="literary">文艺</t-radio-button>
           <t-radio-button value="humorous">幽默</t-radio-button>
         </t-radio-group>
-        <t-button theme="default" @click="handleRewrite" :loading="loading.rewrite" style="width: 100%">
+        <t-button theme="default" size="small" @click="handleRewrite" :loading="loading.rewrite" style="width: 100%; margin-top: 8px;">
           <template #icon>
             <t-icon name="refresh" />
           </template>
           改写为{{ rewriteStyleText }}
         </t-button>
-      </t-space>
+      </div>
 
       <!-- 编辑器操作 -->
       <t-divider align="left">编辑器操作</t-divider>
-      <t-space direction="vertical" style="width: 100%">
-        <t-button theme="default" @click="handleExtractEditorStyle" :loading="loading.editorExtract" style="width: 100%">
-          <template #icon>
-            <t-icon name="scan" />
-          </template>
-          从编辑器提取风格
-        </t-button>
-      </t-space>
+      <t-button theme="default" size="small" @click="handleExtractEditorStyle" :loading="loading.editorExtract" style="width: 100%">
+        <template #icon>
+          <t-icon name="scan" />
+        </template>
+        从编辑器提取风格
+      </t-button>
 
       <!-- 结果显示区域 -->
-      <div class="tool-result" v-if="toolResult || loading.any">
+      <div class="tool-result" v-show="toolResult || loading.any">
         <div class="result-header">
-          <h4>{{ resultTitle }}</h4>
-          <t-space v-if="toolResult">
-            <t-button theme="primary" size="small" @click="insertResult">
-              <template #icon>
-                <t-icon name="insert" />
-              </template>
-              插入
-            </t-button>
-            <t-button theme="default" size="small" @click="copyResult">
+          <div class="result-title">
+            <t-icon name="assignment" />
+            <span>{{ resultTitle }}</span>
+          </div>
+          <div class="result-actions" v-show="toolResult && !loading.any">
+            <!-- 续写、总结：在选区后插入 -->
+            <template v-if="currentTaskType === 'continue' || currentTaskType === 'summarize'">
+              <t-button theme="primary" size="small" @click="insertAfterSelection">
+                <template #icon>
+                  <t-icon name="insert" />
+                </template>
+                插入选区后
+              </t-button>
+            </template>
+            <!-- 润色、扩写、改写：替换选中的内容 -->
+            <template v-else-if="currentTaskType === 'polish' || currentTaskType === 'expand' || currentTaskType === 'rewrite'">
+              <t-button theme="primary" size="small" @click="replaceResult">
+                <template #icon>
+                  <t-icon name="refresh" />
+                </template>
+                替换选中文本
+              </t-button>
+            </template>
+            <!-- 其他：在文档末尾插入 -->
+            <template v-else>
+              <t-button theme="primary" size="small" @click="insertResult">
+                <template #icon>
+                  <t-icon name="insert" />
+                </template>
+                插入编辑器
+              </t-button>
+            </template>
+            <t-button theme="default" size="small" variant="outline" @click="copyResult">
               <template #icon>
                 <t-icon name="copy" />
               </template>
@@ -97,14 +133,14 @@
                 <t-icon name="close" />
               </template>
             </t-button>
-          </t-space>
+          </div>
         </div>
-        <div class="result-content" v-if="!loading.any">
+        <div class="result-content" v-show="!loading.any && toolResult">
           <pre v-if="isCodeResult">{{ toolResult }}</pre>
-          <div v-else v-html="formattedResult"></div>
+          <div v-else class="result-text">{{ toolResult }}</div>
         </div>
-        <div class="result-loading" v-else>
-          <t-loading text="处理中..."></t-loading>
+        <div class="result-loading" v-show="loading.any">
+          <t-loading text="AI 正在生成内容..." size="small"></t-loading>
         </div>
       </div>
 
@@ -284,7 +320,7 @@ const executeTask = async (
   loading[loadingKey] = true
   currentTaskType.value = taskType
   resultTitle.value = title
-  toolResult.value = ''
+  // 注意：不要在开始加载时清空结果，这样用户可以看到上一次的结果直到新结果生成
   isCodeResult.value = false
 
   try {
@@ -319,13 +355,23 @@ const executeTask = async (
         throw new Error('未知的任务类型')
     }
 
-    if (response.data?.result) {
-      toolResult.value = response.data.result
+    // 处理响应数据
+    // API 返回 AssistantTaskResponse { result, task_type, metadata }
+    console.log('[ToolArea] API 响应:', response)
+    // response 直接是 AssistantTaskResponse
+    const resultData = response.result
+    console.log('[ToolArea] 提取的结果:', resultData)
+    if (resultData && typeof resultData === 'string') {
+      toolResult.value = resultData
+      console.log('[ToolArea] 已设置 toolResult:', toolResult.value.substring(0, 50))
       MessagePlugin.success(`${title}完成`)
+    } else {
+      console.error('[ToolArea] 返回数据格式错误:', response)
+      throw new Error('返回数据格式错误: 未找到 result 字段')
     }
   } catch (error: any) {
-    MessagePlugin.error(error.response?.data?.message || `${title}失败`)
-    toolResult.value = ''
+    MessagePlugin.error(error.response?.data?.message || error.message || `${title}失败`)
+    // 错误时保留之前的结果，只显示错误提示
   } finally {
     loading[loadingKey] = false
   }
@@ -397,11 +443,27 @@ const handleExtractEditorStyle = async () => {
   }
 }
 
-// 插入结果
+// 插入结果（在文档末尾追加）
 const insertResult = () => {
   if (toolResult.value) {
-    emit('insert', toolResult.value)
+    editorStore.requestInsertContent(toolResult.value)
     MessagePlugin.success('已插入')
+  }
+}
+
+// 替换选中的内容
+const replaceResult = () => {
+  if (toolResult.value) {
+    editorStore.requestReplaceContent(toolResult.value)
+    MessagePlugin.success('已替换选中的内容')
+  }
+}
+
+// 在选区后插入内容
+const insertAfterSelection = () => {
+  if (toolResult.value) {
+    editorStore.requestInsertAfterSelection(toolResult.value)
+    MessagePlugin.success('已在选区后插入')
   }
 }
 
@@ -418,15 +480,7 @@ const clearResult = () => {
   toolResult.value = ''
 }
 
-// 格式化结果（将换行符转为HTML）
-const formattedResult = computed(() => {
-  if (!toolResult.value) return ''
-  return toolResult.value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>')
-})
+
 
 // 格式化百分比
 const formatPercent = (value: number | undefined) => {
@@ -440,47 +494,157 @@ const formatPercent = (value: number | undefined) => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
+/* 按钮网格布局 */
+.button-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.button-grid .t-button {
+  width: 100%;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* 改写区域 */
+.rewrite-section {
+  width: 100%;
+}
+
+.rewrite-section .t-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rewrite-section .t-radio-button {
+  flex: 1;
+  min-width: 60px;
+  text-align: center;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+/* 选中文本预览 */
+.selected-text-preview {
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #1890ff;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.preview-content {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+  max-height: 80px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.no-selection-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  color: #999;
+  font-size: 13px;
+  justify-content: center;
+}
+
+/* 结果显示区域 */
 .tool-result {
   margin-top: 16px;
-  padding: 12px;
-  background: #f5f5f5;
-  border-radius: 4px;
+  padding: 16px;
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: 6px;
   font-size: 14px;
 }
 
 .result-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.result-header h4 {
-  margin: 0;
+.result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.result-actions .t-button {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.result-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
-  font-weight: bold;
+  font-weight: 600;
+  color: #52c41a;
 }
 
 .result-content {
   max-height: 300px;
   overflow-y: auto;
-  line-height: 1.6;
+  line-height: 1.8;
+  background: #fff;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.result-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 14px;
+  color: #333;
 }
 
 .result-content pre {
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: inherit;
-  font-size: 13px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
   line-height: 1.6;
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 4px;
 }
 
 .result-loading {
-  padding: 40px 0;
+  padding: 24px 0;
   text-align: center;
+  color: #999;
 }
 
 .style-detail {

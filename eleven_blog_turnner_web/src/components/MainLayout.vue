@@ -37,7 +37,7 @@
             </li>
           </ul>
         </nav>
-        
+
         <div class="header-actions">
           <div class="breadcrumb">
             <span v-for="(item, index) in breadcrumbs" :key="index" class="breadcrumb-item">
@@ -353,7 +353,7 @@ document.addEventListener('click', (e) => {
   .file-tree {
     width: 200px;
   }
-  
+
   .tool-area {
     width: 250px;
   }
@@ -369,21 +369,21 @@ document.addEventListener('click', (e) => {
   .workspace {
     flex-direction: column;
   }
-  
+
   .file-tree {
     width: 100%;
     height: 200px;
     border-right: none;
     border-bottom: 1px solid #e7e7e7;
   }
-  
+
   .tool-area {
     width: 100%;
     height: 200px;
     border-left: none;
     border-top: 1px solid #e7e7e7;
   }
-  
+
   .content-area {
     flex: 1;
   }

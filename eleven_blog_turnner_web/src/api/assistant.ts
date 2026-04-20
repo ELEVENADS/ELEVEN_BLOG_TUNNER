@@ -1,7 +1,7 @@
 import apiClient from '@/utils/api'
 
 // 辅助任务类型
-export type AssistantTaskType = 
+export type AssistantTaskType =
   | 'continue'      // 续写
   | 'extract_style' // 提取风格
   | 'rewrite'       // 改写
@@ -96,8 +96,9 @@ export const assistantApi = {
   /**
    * 执行辅助任务
    */
-  async executeTask(data: AssistantTaskRequest): Promise<{ data: AssistantTaskResponse }> {
+  async executeTask(data: AssistantTaskRequest): Promise<AssistantTaskResponse> {
     const response = await apiClient.post('/assistant/execute', data)
+    // API 返回 { code, data: AssistantTaskResponse, message }
     return response.data?.data
   },
 
@@ -113,10 +114,10 @@ export const assistantApi = {
    * 智能续写
    */
   async continueWriting(
-    selectedText: string, 
-    context?: string, 
+    selectedText: string,
+    context?: string,
     options?: { style_hint?: string; length?: number }
-  ): Promise<{ data: AssistantTaskResponse }> {
+  ): Promise<AssistantTaskResponse> {
     return this.executeTask({
       task_type: 'continue',
       selected_text: selectedText,
@@ -129,7 +130,7 @@ export const assistantApi = {
   /**
    * 提取选中内容的风格
    */
-  async extractStyle(selectedText: string): Promise<{ data: AssistantTaskResponse }> {
+  async extractStyle(selectedText: string): Promise<AssistantTaskResponse> {
     return this.executeTask({
       task_type: 'extract_style',
       selected_text: selectedText
@@ -139,7 +140,7 @@ export const assistantApi = {
   /**
    * 改写内容
    */
-  async rewrite(selectedText: string, style: string): Promise<{ data: AssistantTaskResponse }> {
+  async rewrite(selectedText: string, style: string): Promise<AssistantTaskResponse> {
     return this.executeTask({
       task_type: 'rewrite',
       selected_text: selectedText,
@@ -150,7 +151,7 @@ export const assistantApi = {
   /**
    * 润色内容
    */
-  async polish(selectedText: string): Promise<{ data: AssistantTaskResponse }> {
+  async polish(selectedText: string): Promise<AssistantTaskResponse> {
     return this.executeTask({
       task_type: 'polish',
       selected_text: selectedText
@@ -160,7 +161,7 @@ export const assistantApi = {
   /**
    * 生成写作建议
    */
-  async generateSuggestions(selectedText: string, context?: string): Promise<{ data: AssistantTaskResponse }> {
+  async generateSuggestions(selectedText: string, context?: string): Promise<AssistantTaskResponse> {
     return this.executeTask({
       task_type: 'suggest',
       selected_text: selectedText,
@@ -171,7 +172,7 @@ export const assistantApi = {
   /**
    * 扩写内容
    */
-  async expand(selectedText: string, targetLength: number = 300): Promise<{ data: AssistantTaskResponse }> {
+  async expand(selectedText: string, targetLength: number = 300): Promise<AssistantTaskResponse> {
     return this.executeTask({
       task_type: 'expand',
       selected_text: selectedText,
@@ -182,7 +183,7 @@ export const assistantApi = {
   /**
    * 总结内容
    */
-  async summarize(selectedText: string): Promise<{ data: AssistantTaskResponse }> {
+  async summarize(selectedText: string): Promise<AssistantTaskResponse> {
     return this.executeTask({
       task_type: 'summarize',
       selected_text: selectedText

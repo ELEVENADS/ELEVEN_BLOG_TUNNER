@@ -241,7 +241,7 @@ class AssistantAgent(BaseAgent):
 
     # ========== 工具方法 ==========
 
-    def _continue_writing(
+    async def _continue_writing(
         self,
         selected_text: str,
         context: str,
@@ -259,9 +259,24 @@ class AssistantAgent(BaseAgent):
         Returns:
             续写内容
         """
-        return f"根据上文内容，继续撰写约{length}字的内容，保持与原文风格一致。"
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": f"你是一位专业的写作助手。请根据用户提供的文本，继续撰写约{length}字的内容，保持与原文风格一致。只输出续写的内容，不要添加解释。"
+                },
+                {
+                    "role": "user",
+                    "content": f"前文内容：\n{context}\n\n选中的文本（作为续写起点）：\n{selected_text}\n\n请继续撰写："
+                }
+            ]
 
-    def _extract_selection_style(self, text: str) -> str:
+            result = await self.call_llm(messages, temperature=0.7, max_tokens=length * 2)
+            return result
+        except Exception as e:
+            return f"续写失败: {str(e)}"
+
+    async def _extract_selection_style(self, text: str) -> str:
         """提取选中内容的风格
 
         Args:
@@ -270,20 +285,24 @@ class AssistantAgent(BaseAgent):
         Returns:
             风格描述
         """
-        return f"""从选中文本提取的风格特征：
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "你是一位专业的写作风格分析师。请分析以下文本的写作风格特征，包括：语言风格、句式特点、词汇偏好、情感倾向、独特习惯等。用中文输出分析结果。"
+                },
+                {
+                    "role": "user",
+                    "content": f"请分析以下文本的写作风格：\n\n{text}"
+                }
+            ]
 
-**语言风格**：专业、简洁
-**句式特点**：长短句结合，节奏明快
-**词汇偏好**：使用专业术语，表达准确
-**情感倾向**：客观、理性
-**独特习惯**：
-- 喜欢使用"首先...其次...最后"的结构
-- 善用举例说明
-- 段落组织清晰
+            result = await self.call_llm(messages, temperature=0.3, max_tokens=1000)
+            return result
+        except Exception as e:
+            return f"风格提取失败: {str(e)}"
 
-**建议应用**：在续写时保持这种结构清晰、逻辑严谨的写作风格。"""
-
-    def _rewrite_content(self, text: str, style: str) -> str:
+    async def _rewrite_content(self, text: str, style: str) -> str:
         """改写内容
 
         Args:
@@ -293,9 +312,24 @@ class AssistantAgent(BaseAgent):
         Returns:
             改写后的文本
         """
-        return f"【改写为{style}风格】\n\n{text}\n\n（此处为改写后的内容示例）"
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": f"你是一位专业的写作助手。请将用户提供的文本改写为{style}风格，保持原意不变。只输出改写后的内容，不要添加解释。"
+                },
+                {
+                    "role": "user",
+                    "content": f"请将以下内容改写为{style}风格：\n\n{text}"
+                }
+            ]
 
-    def _polish_text(self, text: str) -> str:
+            result = await self.call_llm(messages, temperature=0.7, max_tokens=2000)
+            return result
+        except Exception as e:
+            return f"改写失败: {str(e)}"
+
+    async def _polish_text(self, text: str) -> str:
         """润色文本
 
         Args:
@@ -304,9 +338,24 @@ class AssistantAgent(BaseAgent):
         Returns:
             润色后的文本
         """
-        return f"【润色后】\n\n{text}\n\n（此处为润色后的内容，优化了用词和句式）"
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "你是一位专业的写作助手。请对用户提供的文本进行润色，优化用词和句式，使其更加流畅、准确。保持原意不变，只输出润色后的内容，不要添加解释。"
+                },
+                {
+                    "role": "user",
+                    "content": f"请润色以下文本：\n\n{text}"
+                }
+            ]
 
-    def _generate_suggestions(self, selected_text: str, context: str) -> str:
+            result = await self.call_llm(messages, temperature=0.5, max_tokens=2000)
+            return result
+        except Exception as e:
+            return f"润色失败: {str(e)}"
+
+    async def _generate_suggestions(self, selected_text: str, context: str) -> str:
         """生成写作建议
 
         Args:
@@ -316,25 +365,24 @@ class AssistantAgent(BaseAgent):
         Returns:
             建议内容
         """
-        return """基于当前内容的写作建议：
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "你是一位专业的写作顾问。请基于用户提供的文本，给出具体的写作建议，包括内容补充、结构优化、表达优化等方面。用中文输出建议。"
+                },
+                {
+                    "role": "user",
+                    "content": f"上下文：\n{context}\n\n选中的文本：\n{selected_text}\n\n请给出写作建议："
+                }
+            ]
 
-1. **内容补充建议**
-   - 可以添加具体案例来支撑论点
-   - 建议补充数据或统计信息增强说服力
+            result = await self.call_llm(messages, temperature=0.5, max_tokens=1500)
+            return result
+        except Exception as e:
+            return f"生成建议失败: {str(e)}"
 
-2. **结构优化建议**
-   - 当前段落较长，建议拆分为2-3个小段落
-   - 可以添加小标题提升可读性
-
-3. **表达优化建议**
-   - "XXX" 可以改为更具体的描述
-   - 建议减少被动语态的使用
-
-4. **衔接建议**
-   - 与下文衔接时，可以使用过渡句
-   - 建议添加承上启下的段落"""
-
-    def _expand_content(self, text: str, target_length: int) -> str:
+    async def _expand_content(self, text: str, target_length: int) -> str:
         """扩写内容
 
         Args:
@@ -344,9 +392,24 @@ class AssistantAgent(BaseAgent):
         Returns:
             扩写后的文本
         """
-        return f"【扩写至约{target_length}字】\n\n{text}\n\n（此处为扩写后的详细内容，增加了细节描述、例子和解释）"
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": f"你是一位专业的写作助手。请将用户提供的文本扩写至约{target_length}字，增加细节描述、例子和解释，保持原文风格和主题。只输出扩写后的内容，不要添加解释。"
+                },
+                {
+                    "role": "user",
+                    "content": f"请扩写以下文本至约{target_length}字：\n\n{text}"
+                }
+            ]
 
-    def _summarize_selection(self, text: str) -> str:
+            result = await self.call_llm(messages, temperature=0.7, max_tokens=target_length * 2)
+            return result
+        except Exception as e:
+            return f"扩写失败: {str(e)}"
+
+    async def _summarize_selection(self, text: str) -> str:
         """总结选中的内容
 
         Args:
@@ -355,7 +418,22 @@ class AssistantAgent(BaseAgent):
         Returns:
             总结内容
         """
-        return f"【内容总结】\n\n{text[:100]}...\n\n核心要点：\n1. 主要观点...\n2. 关键论据...\n3. 结论建议..."
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": "你是一位专业的内容总结助手。请对用户提供的文本进行总结，提炼核心要点。用中文输出总结结果。"
+                },
+                {
+                    "role": "user",
+                    "content": f"请总结以下文本的核心要点：\n\n{text}"
+                }
+            ]
+
+            result = await self.call_llm(messages, temperature=0.3, max_tokens=1000)
+            return result
+        except Exception as e:
+            return f"总结失败: {str(e)}"
 
     def get_system_prompt(self) -> str:
         """获取系统提示词

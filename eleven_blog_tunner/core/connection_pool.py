@@ -1,11 +1,11 @@
-"""
-连接池管理模块
+"""连接池管理模块
 
 提供连接池功能，优化资源使用
 """
 import asyncio
 from typing import Any, Dict, Optional, List
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 
 class ConnectionPool:
@@ -122,17 +122,22 @@ class ThreadPoolManager:
     
     async def run_in_thread(self, func, *args, **kwargs):
         """在线程池中执行同步函数
-        
+
         Args:
             func: 同步函数
             *args: 函数参数
             **kwargs: 函数关键字参数
-            
+
         Returns:
             函数执行结果
         """
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(self.executor, func, *args, **kwargs)
+        # 使用 partial 将关键字参数绑定到函数上
+        # run_in_executor 只接受位置参数
+        if kwargs:
+            func_with_kwargs = partial(func, **kwargs)
+            return await loop.run_in_executor(self.executor, func_with_kwargs, *args)
+        return await loop.run_in_executor(self.executor, func, *args)
     
     def shutdown(self):
         """关闭线程池"""

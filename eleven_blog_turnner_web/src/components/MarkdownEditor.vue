@@ -35,6 +35,8 @@ import { Editor, Viewer } from '@bytemd/vue-next'
 import gfm from '@bytemd/plugin-gfm'
 import highlight from '@bytemd/plugin-highlight'
 import { useEditorStore } from '@/stores/editor'
+import { MessagePlugin } from 'tdesign-vue-next'
+import type { BytemdPlugin, BytemdEditorContext } from 'bytemd'
 
 import 'bytemd/dist/index.css'
 import 'highlight.js/styles/github.css'
@@ -54,10 +56,24 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits(['update:modelValue', 'change'])
 
 const editorStore = useEditorStore()
-const plugins = [gfm(), highlight()]
 const title = ref(props.modelValue.title)
 const content = ref(props.modelValue.content)
 const editorRef = ref<HTMLElement | null>(null)
+
+// 保存编辑器上下文，用于插入内容
+let editorContext: BytemdEditorContext | null = null
+
+// 创建自定义插件来获取编辑器实例
+const editorInstancePlugin: BytemdPlugin = {
+    editorEffect(ctx) {
+        editorContext = ctx
+        return () => {
+            editorContext = null
+        }
+    }
+}
+
+const plugins = [gfm(), highlight(), editorInstancePlugin]
 
 watch(title, (newTitle) => {
     console.log('[MarkdownEditor] title 变化:', newTitle, '当前 content:', content.value)
@@ -79,6 +95,86 @@ watch(() => props.modelValue, (newVal) => {
     editorStore.setEditorContent(newVal.content)
 }, { deep: true })
 
+// 监听 store 中的插入请求
+watch(() => editorStore.shouldInsertContent, (shouldInsert) => {
+    if (shouldInsert && editorStore.pendingInsertContent) {
+        const insertContent = editorStore.pendingInsertContent
+        const mode = editorStore.insertMode
+
+        // 优先使用 CodeMirror 编辑器在精确光标位置插入
+        if (editorContext?.editor) {
+            try {
+                const editor = editorContext.editor
+                const selection = editor.getSelection()
+
+                switch (mode) {
+                    case 'replace':
+                        // 替换选中的内容
+                        if (selection) {
+                            const from = editor.getCursor('from')
+                            const to = editor.getCursor('to')
+                            editor.replaceRange(insertContent, from, to)
+                            MessagePlugin.success('内容已替换')
+                        } else {
+                            // 没有选中文本，在当前光标位置插入
+                            const cursor = editor.getCursor()
+                            editor.replaceRange(insertContent, cursor)
+                            MessagePlugin.success('内容已插入')
+                        }
+                        break
+
+                    case 'insert_after_selection':
+                        // 在选区后插入内容
+                        if (selection) {
+                            const endPos = editor.getCursor('to')
+                            editor.replaceRange('\n\n' + insertContent, endPos)
+                            MessagePlugin.success('内容已插入选区后')
+                        } else {
+                            // 没有选中文本，在当前光标位置插入
+                            const cursor = editor.getCursor()
+                            editor.replaceRange('\n\n' + insertContent, cursor)
+                            MessagePlugin.success('内容已插入光标位置')
+                        }
+                        break
+
+                    case 'append':
+                    default:
+                        // 在文档末尾追加
+                        const lastLine = editor.lastLine()
+                        const lastCh = editor.getLine(lastLine).length
+                        editor.replaceRange('\n\n' + insertContent, { line: lastLine, ch: lastCh })
+                        MessagePlugin.success('内容已插入文档末尾')
+                        break
+                }
+
+                // 确认已插入
+                editorStore.confirmContentInserted()
+                return
+            } catch (e) {
+                console.error('[MarkdownEditor] 使用 CodeMirror API 插入失败:', e)
+                // 失败时回退到传统方式
+            }
+        }
+
+        // 回退方式：在内容末尾追加
+        let newContent: string
+        if (content.value.trim()) {
+            newContent = content.value.trimEnd() + '\n\n' + insertContent
+        } else {
+            newContent = insertContent
+        }
+
+        // 更新内容
+        content.value = newContent
+        emit('update:modelValue', { title: title.value, content: newContent })
+        editorStore.setEditorContent(newContent)
+
+        // 确认已插入
+        editorStore.confirmContentInserted()
+        MessagePlugin.success('内容已插入编辑器末尾')
+    }
+})
+
 const handleChange = (value: string) => {
     console.log('[MarkdownEditor] @change 触发:', value?.substring(0, 50))
     content.value = value
@@ -99,7 +195,7 @@ const handleSelectionChange = () => {
         preSelectionRange.setEnd(range.startContainer, range.startOffset)
         const start = preSelectionRange.toString().length
         const end = start + selectedText.length
-        
+
         editorStore.setSelection(selectedText, start, end)
         console.log('[MarkdownEditor] 选区变化:', selectedText.substring(0, 50))
     } else {
@@ -122,7 +218,7 @@ const handleMouseUp = () => {
 onMounted(() => {
     // 初始化编辑器内容到 store
     editorStore.setEditorContent(content.value)
-    
+
     // 监听选区变化
     document.addEventListener('selectionchange', handleSelectionChange)
     document.addEventListener('mouseup', handleMouseUp)

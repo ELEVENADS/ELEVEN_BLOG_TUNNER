@@ -1,55 +1,60 @@
 """
-Gateway 相关 API
+Gateway API 路由
 
-统一通过 Gateway 层处理所有任务请求
+提供任务管理、状态查询等接口
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
+
+from eleven_blog_tunner.api.routes.common import (
+    CommonResponse, SuccessResponse, ErrorResponse
+)
 from eleven_blog_tunner.gateway.api_handler import APIHandler
-from eleven_blog_tunner.api.routes.common import CommonResponse, SuccessResponse, ErrorResponse
+from eleven_blog_tunner.gateway.task_manager import TaskManager
 
 router = APIRouter(prefix="/gateway", tags=["gateway"])
 
-# 全局 APIHandler 实例
+# 创建 APIHandler 实例
 api_handler = APIHandler()
 
-class GatewayTaskRequest(BaseModel):
-    """网关任务请求模型"""
+
+class CreateTaskRequest(BaseModel):
+    """创建任务请求"""
     task_type: str
     input_data: str
-    user_id: str = "default"
+    user_id: str
 
 
-class GatewayTaskResponse(BaseModel):
-    """网关任务响应模型"""
+class TaskResponse(BaseModel):
+    """任务响应"""
     task_id: str
     status: str
-    message: str
+    progress: int = 0
 
 
-class GatewayTaskStatus(BaseModel):
-    """网关任务状态模型"""
-    task_id: str
-    status: str
-    data: Optional[Dict[str, Any]] = None
+@router.on_event("startup")
+async def startup_event():
+    """启动时初始化"""
+    await api_handler.start()
 
 
-class GatewayTaskResult(BaseModel):
-    """网关任务结果模型"""
-    task_id: str
-    status: str
-    data: Optional[Dict[str, Any]] = None
+@router.on_event("shutdown")
+async def shutdown_event():
+    """关闭时清理"""
+    await api_handler.stop()
 
 
-@router.post("/tasks", response_model=CommonResponse[GatewayTaskResponse])
-async def create_gateway_task(request: GatewayTaskRequest):
+@router.post("/tasks", response_model=CommonResponse)
+async def create_task(request: CreateTaskRequest):
     """
-    创建网关任务
-
-    - **task_type**: 任务类型 (article_generation, style_analysis, article_review, system_status)
-    - **input_data**: 输入数据
-    - **user_id**: 用户 ID
+    创建新任务
+    
+    任务类型：
+    - article_generation: 文章生成
+    - style_analysis: 风格分析
+    - article_review: 文章审查
+    - system_status: 系统状态查询
     """
     try:
         result = await api_handler.create_task(
@@ -58,15 +63,11 @@ async def create_gateway_task(request: GatewayTaskRequest):
             user_id=request.user_id
         )
         return SuccessResponse.build(
-            data=GatewayTaskResponse(
-                task_id=result["task_id"],
-                status="created",
-                message=result["message"]
-            ),
-            message=result["message"]
+            data=result,
+            message="任务创建成功"
         )
     except HTTPException as e:
-        return ErrorResponse.build(
+        return ErrorResponse(
             code=str(e.status_code),
             message=e.detail
         )
@@ -74,23 +75,17 @@ async def create_gateway_task(request: GatewayTaskRequest):
         return ErrorResponse.internal_error(message=str(e))
 
 
-@router.get("/tasks/{task_id}", response_model=CommonResponse[GatewayTaskStatus])
-async def get_gateway_task_status(task_id: str):
-    """
-    获取网关任务状态
-    """
+@router.get("/tasks/{task_id}", response_model=CommonResponse)
+async def get_task_status(task_id: str):
+    """获取任务状态"""
     try:
         result = await api_handler.get_task_status(task_id)
         return SuccessResponse.build(
-            data=GatewayTaskStatus(
-                task_id=task_id,
-                status=result["data"].get("status", "unknown"),
-                data=result["data"]
-            ),
+            data=result,
             message="获取任务状态成功"
         )
     except HTTPException as e:
-        return ErrorResponse.build(
+        return ErrorResponse(
             code=str(e.status_code),
             message=e.detail
         )
@@ -98,23 +93,17 @@ async def get_gateway_task_status(task_id: str):
         return ErrorResponse.internal_error(message=str(e))
 
 
-@router.get("/tasks/{task_id}/result", response_model=CommonResponse[GatewayTaskResult])
-async def get_gateway_task_result(task_id: str):
-    """
-    获取网关任务结果
-    """
+@router.get("/tasks/{task_id}/result", response_model=CommonResponse)
+async def get_task_result(task_id: str):
+    """获取任务结果"""
     try:
         result = await api_handler.get_task_result(task_id)
         return SuccessResponse.build(
-            data=GatewayTaskResult(
-                task_id=task_id,
-                status="completed",
-                data=result["data"]
-            ),
+            data=result,
             message="获取任务结果成功"
         )
     except HTTPException as e:
-        return ErrorResponse.build(
+        return ErrorResponse(
             code=str(e.status_code),
             message=e.detail
         )
@@ -122,22 +111,17 @@ async def get_gateway_task_result(task_id: str):
         return ErrorResponse.internal_error(message=str(e))
 
 
-@router.delete("/tasks/{task_id}", response_model=CommonResponse[GatewayTaskStatus])
-async def cancel_gateway_task(task_id: str):
-    """
-    取消网关任务
-    """
+@router.delete("/tasks/{task_id}", response_model=CommonResponse)
+async def cancel_task(task_id: str):
+    """取消任务"""
     try:
         result = await api_handler.cancel_task(task_id)
         return SuccessResponse.build(
-            data=GatewayTaskStatus(
-                task_id=task_id,
-                status="cancelled"
-            ),
-            message=result["message"]
+            data=result,
+            message="任务取消成功"
         )
     except HTTPException as e:
-        return ErrorResponse.build(
+        return ErrorResponse(
             code=str(e.status_code),
             message=e.detail
         )
@@ -146,19 +130,12 @@ async def cancel_gateway_task(task_id: str):
 
 
 @router.get("/tasks", response_model=CommonResponse)
-async def list_gateway_tasks(user_id: Optional[str] = None):
-    """
-    列出网关任务
-
-    - **user_id**: 可选的用户 ID
-    """
+async def list_tasks(user_id: Optional[str] = None):
+    """列出任务"""
     try:
         result = await api_handler.list_tasks(user_id)
         return SuccessResponse.build(
-            data={
-                "tasks": result["data"],
-                "total": result["total"]
-            },
+            data=result,
             message="获取任务列表成功"
         )
     except Exception as e:
@@ -166,15 +143,18 @@ async def list_gateway_tasks(user_id: Optional[str] = None):
 
 
 @router.get("/health", response_model=CommonResponse)
-async def gateway_health_check():
-    """
-    网关健康检查
-    """
+async def health_check():
+    """健康检查"""
     try:
         result = await api_handler.health_check()
-        return SuccessResponse.build(
-            data=result,
-            message="健康检查成功"
-        )
+        if result.get("success"):
+            return SuccessResponse.build(
+                data=result,
+                message="系统健康"
+            )
+        else:
+            return ErrorResponse.internal_error(
+                message=result.get("error", "系统不健康")
+            )
     except Exception as e:
         return ErrorResponse.internal_error(message=str(e))

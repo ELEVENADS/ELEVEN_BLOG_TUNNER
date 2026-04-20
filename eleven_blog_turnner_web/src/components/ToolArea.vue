@@ -17,78 +17,8 @@
         <span>在编辑器中选中文本以使用智能工具</span>
       </div>
 
-      <!-- 选中文本操作 -->
-      <t-divider align="left">选中文本操作</t-divider>
-      <div class="button-grid">
-        <t-button theme="primary" size="small" @click="handleContinueWriting" :loading="loading.continue">
-          <template #icon>
-            <t-icon name="edit" />
-          </template>
-          续写
-        </t-button>
-        <t-button theme="default" size="small" @click="handleExtractStyle" :loading="loading.extract">
-          <template #icon>
-            <t-icon name="palette" />
-          </template>
-          提取风格
-        </t-button>
-        <t-button theme="default" size="small" @click="handlePolish" :loading="loading.polish">
-          <template #icon>
-            <t-icon name="brush" />
-          </template>
-          润色
-        </t-button>
-        <t-button theme="default" size="small" @click="handleExpand" :loading="loading.expand">
-          <template #icon>
-            <t-icon name="maximize" />
-          </template>
-          扩写
-        </t-button>
-        <t-button theme="default" size="small" @click="handleSummarize" :loading="loading.summarize">
-          <template #icon>
-            <t-icon name="file" />
-          </template>
-          总结
-        </t-button>
-        <t-button theme="default" size="small" @click="handleSuggest" :loading="loading.suggest">
-          <template #icon>
-            <t-icon name="tips" />
-          </template>
-          建议
-        </t-button>
-      </div>
-
-      <!-- 改写选项 -->
-      <t-divider align="left">改写风格</t-divider>
-      <div class="rewrite-section">
-        <t-radio-group v-model="rewriteStyle" variant="default-filled" size="small">
-          <t-radio-button value="professional">专业</t-radio-button>
-          <t-radio-button value="casual">轻松</t-radio-button>
-          <t-radio-button value="academic">学术</t-radio-button>
-        </t-radio-group>
-        <t-radio-group v-model="rewriteStyle" variant="default-filled" size="small" style="margin-top: 8px;">
-          <t-radio-button value="literary">文艺</t-radio-button>
-          <t-radio-button value="humorous">幽默</t-radio-button>
-        </t-radio-group>
-        <t-button theme="default" size="small" @click="handleRewrite" :loading="loading.rewrite" style="width: 100%; margin-top: 8px;">
-          <template #icon>
-            <t-icon name="refresh" />
-          </template>
-          改写为{{ rewriteStyleText }}
-        </t-button>
-      </div>
-
-      <!-- 编辑器操作 -->
-      <t-divider align="left">编辑器操作</t-divider>
-      <t-button theme="default" size="small" @click="handleExtractEditorStyle" :loading="loading.editorExtract" style="width: 100%">
-        <template #icon>
-          <t-icon name="scan" />
-        </template>
-        从编辑器提取风格
-      </t-button>
-
-      <!-- 结果显示区域 -->
-      <div class="tool-result" v-show="toolResult || loading.any">
+      <!-- 结果显示区域（显示在选中文本预览下方） -->
+      <div class="tool-result" v-if="toolResult || loading.any">
         <div class="result-header">
           <div class="result-title">
             <t-icon name="assignment" />
@@ -128,10 +58,11 @@
               </template>
               复制
             </t-button>
-            <t-button theme="danger" size="small" variant="text" @click="clearResult">
+            <t-button theme="danger" size="small" variant="text" @click="clearResultAndShowTools">
               <template #icon>
                 <t-icon name="close" />
               </template>
+              关闭
             </t-button>
           </div>
         </div>
@@ -143,6 +74,100 @@
           <t-loading text="AI 正在生成内容..." size="small"></t-loading>
         </div>
       </div>
+
+      <!-- 功能按钮区（有结果时隐藏） -->
+      <template v-if="!toolResult && !loading.any">
+        <!-- 选中文本操作 -->
+        <t-divider align="left">选中文本操作</t-divider>
+        <div class="button-grid">
+          <t-button theme="primary" size="small" @click="handleContinueWriting" :loading="loading.continue">
+            <template #icon>
+              <t-icon name="edit" />
+            </template>
+            续写
+          </t-button>
+          <t-button theme="default" size="small" @click="handleExtractStyle" :loading="loading.extract">
+            <template #icon>
+              <t-icon name="palette" />
+            </template>
+            提取风格
+          </t-button>
+          <t-button theme="default" size="small" @click="handlePolish" :loading="loading.polish">
+            <template #icon>
+              <t-icon name="brush" />
+            </template>
+            润色
+          </t-button>
+          <t-button theme="default" size="small" @click="handleExpand" :loading="loading.expand">
+            <template #icon>
+              <t-icon name="maximize" />
+            </template>
+            扩写
+          </t-button>
+          <t-button theme="default" size="small" @click="handleSummarize" :loading="loading.summarize">
+            <template #icon>
+              <t-icon name="file" />
+            </template>
+            总结
+          </t-button>
+          <t-button theme="default" size="small" @click="handleSuggest" :loading="loading.suggest">
+            <template #icon>
+              <t-icon name="tips" />
+            </template>
+            建议
+          </t-button>
+        </div>
+
+        <!-- 改写选项 -->
+      <t-divider align="left">改写风格</t-divider>
+      <div class="rewrite-section">
+        <t-select
+          v-model="rewriteStyle"
+          :loading="loadingStyles"
+          placeholder="选择系统风格"
+          size="small"
+          style="width: 100%"
+        >
+          <t-option
+            v-for="style in systemStyles"
+            :key="style.name"
+            :label="style.name"
+            :value="style.name"
+          />
+        </t-select>
+        <t-button
+          theme="default"
+          size="small"
+          @click="handleRewrite"
+          :loading="loading.rewrite"
+          :disabled="!rewriteStyle"
+          style="width: 100%; margin-top: 8px;"
+        >
+          <template #icon>
+            <t-icon name="refresh" />
+          </template>
+          改写为{{ rewriteStyleText }}
+        </t-button>
+        <t-link
+          v-if="systemStyles.length === 0"
+          theme="primary"
+          size="small"
+          @click="loadSystemStyles"
+          style="margin-top: 4px; display: block; text-align: center;"
+        >
+          重新加载风格列表
+        </t-link>
+      </div>
+
+        <!-- 编辑器操作 -->
+        <t-divider align="left">编辑器操作</t-divider>
+        <t-button theme="default" size="small" @click="handleExtractEditorStyle" :loading="loading.editorExtract" style="width: 100%">
+          <template #icon>
+            <t-icon name="scan" />
+          </template>
+          从编辑器提取风格
+        </t-button>
+      </template>
 
       <!-- 风格详情弹窗 -->
       <t-dialog v-model:visible="showStyleDialog" header="提取的风格特征" width="700px">
@@ -225,9 +250,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { assistantApi, type AssistantTaskType, type ExtractStyleFromEditorResponse } from '@/api/assistant'
+import { styleApi, type Style } from '@/api/style'
 import { useEditorStore } from '@/stores/editor'
 
 // Pinia Store - 从全局状态获取编辑器内容和选区
@@ -267,17 +293,38 @@ const resultTitle = ref('')
 const currentTaskType = ref<AssistantTaskType>('continue')
 const isCodeResult = ref(false)
 
-// 改写风格
-const rewriteStyle = ref('professional')
+// 系统风格列表
+const systemStyles = ref<Style[]>([])
+const loadingStyles = ref(false)
+
+// 改写风格（使用系统风格名称）
+const rewriteStyle = ref('')
 const rewriteStyleText = computed(() => {
-  const map: Record<string, string> = {
-    professional: '专业风格',
-    casual: '轻松风格',
-    academic: '学术风格',
-    literary: '文艺风格',
-    humorous: '幽默风格'
+  const style = systemStyles.value.find(s => s.name === rewriteStyle.value)
+  return style?.name || '选择风格'
+})
+
+// 加载系统风格列表
+const loadSystemStyles = async () => {
+  loadingStyles.value = true
+  try {
+    const response = await styleApi.getStyleList()
+    if (response?.data?.styles) {
+      systemStyles.value = response.data.styles as Style[]
+      // 默认选择第一个风格
+      if (systemStyles.value.length > 0 && !rewriteStyle.value) {
+        rewriteStyle.value = systemStyles.value[0].name
+      }
+    }
+  } catch (error) {
+    console.error('加载风格列表失败:', error)
+  } finally {
+    loadingStyles.value = false
   }
-  return map[rewriteStyle.value] || '专业风格'
+}
+
+onMounted(() => {
+  loadSystemStyles()
 })
 
 // 风格详情弹窗
@@ -478,6 +525,12 @@ const copyResult = () => {
 // 清空结果
 const clearResult = () => {
   toolResult.value = ''
+}
+
+// 清空结果并显示工具区
+const clearResultAndShowTools = () => {
+  toolResult.value = ''
+  MessagePlugin.success('结果已关闭，可以重新选择功能')
 }
 
 

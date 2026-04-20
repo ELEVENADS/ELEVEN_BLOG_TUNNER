@@ -32,6 +32,7 @@
         <template #operations="{ row }">
           <t-space>
             <t-link @click="viewStyle(row)">查看</t-link>
+            <t-link theme="primary" @click="showEditDialog(row)">编辑</t-link>
             <t-link theme="primary" @click="showAddSampleDialog(row.name)">添加样本</t-link>
             <t-link theme="danger" @click="deleteStyle(row.name)">删除</t-link>
           </t-space>
@@ -151,6 +152,65 @@
           <t-space>
             <t-button type="submit" theme="primary" :loading="adding">添加</t-button>
             <t-button @click="showAddSampleDialogVisible = false">取消</t-button>
+          </t-space>
+        </t-form-item>
+      </t-form>
+    </t-dialog>
+
+    <!-- 编辑风格对话框 -->
+    <t-dialog v-model:visible="showEditDialogVisible" header="编辑风格" :footer="false" width="700px">
+      <t-form :data="editForm" @submit="handleEdit">
+        <t-form-item label="风格名称" name="name">
+          <t-input v-model="editForm.name" placeholder="请输入风格名称" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 语言风格" name="language_style">
+          <t-input v-model="editForm.semantic.language_style" placeholder="如：专业、轻松、学术等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 语气特征" name="tone">
+          <t-input v-model="editForm.semantic.tone" placeholder="如：正式、随意、幽默等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 词汇水平" name="vocabulary_level">
+          <t-input v-model="editForm.semantic.vocabulary_level" placeholder="如：高、中、低等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 句式节奏" name="sentence_rhythm">
+          <t-input v-model="editForm.semantic.sentence_rhythm" placeholder="如：长短结合、平稳等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 情感倾向" name="emotional_tendency">
+          <t-input v-model="editForm.semantic.emotional_tendency" placeholder="如：积极、中性、消极等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 叙述视角" name="perspective">
+          <t-input v-model="editForm.semantic.perspective" placeholder="如：第一人称、第三人称等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 逻辑结构" name="logic_structure">
+          <t-input v-model="editForm.semantic.logic_structure" placeholder="如：总分总、并列等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 目标读者" name="target_audience">
+          <t-input v-model="editForm.semantic.target_audience" placeholder="如：专业人士、普通读者等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 领域特征" name="domain_characteristics">
+          <t-input v-model="editForm.semantic.domain_characteristics" placeholder="如：科技、文学、商业等" />
+        </t-form-item>
+        <t-form-item label="语义特征 - 其他特点" name="writing_quirks">
+          <t-textarea
+            v-model="editForm.semantic.writing_quirks"
+            placeholder="其他写作特点描述"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+          />
+        </t-form-item>
+        <t-form-item label="独特表达习惯" name="unique_habits">
+          <t-textarea
+            v-model="editForm.uniqueHabitsText"
+            placeholder="每行一个习惯，如：
+喜欢使用排比句
+善用比喻修辞
+段落开头常用设问"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+          />
+        </t-form-item>
+        <t-form-item>
+          <t-space>
+            <t-button type="submit" theme="primary" :loading="editing">保存修改</t-button>
+            <t-button @click="showEditDialogVisible = false">取消</t-button>
           </t-space>
         </t-form-item>
       </t-form>
@@ -302,6 +362,8 @@ const showAddSampleDialogVisible = ref(false)
 const adding = ref(false)
 const showDetailDrawer = ref(false)
 const currentStyle = ref<Style | null>(null)
+const showEditDialogVisible = ref(false)
+const editing = ref(false)
 
 // 文件列表相关
 const fileTreeData = ref<TreeNode[]>([])
@@ -355,6 +417,25 @@ const sampleForm = reactive({
   text: ''
 })
 
+// 编辑表单
+const editForm = reactive({
+  originalName: '', // 原始名称，用于 API 调用
+  name: '', // 新名称
+  semantic: {
+    language_style: '',
+    tone: '',
+    vocabulary_level: '',
+    sentence_rhythm: '',
+    emotional_tendency: '',
+    perspective: '',
+    logic_structure: '',
+    target_audience: '',
+    domain_characteristics: '',
+    writing_quirks: ''
+  },
+  uniqueHabitsText: ''
+})
+
 const columns = [
   { colKey: 'name', title: '风格名称', width: '150' },
   { colKey: 'metadata', title: '来源', width: '120' },
@@ -362,7 +443,7 @@ const columns = [
   { colKey: 'sample_count', title: '样本数', width: '80' },
   { colKey: 'total_chars', title: '总字符数', width: '100' },
   { colKey: 'updated_at', title: '更新时间', width: '180' },
-  { colKey: 'operations', title: '操作', width: '250' }
+  { colKey: 'operations', title: '操作', width: '300' }
 ]
 
 onMounted(() => {
@@ -503,6 +584,77 @@ const showAddSampleDialog = (styleName: string) => {
   sampleForm.style_name = styleName
   sampleForm.text = ''
   showAddSampleDialogVisible.value = true
+}
+
+// 显示编辑对话框
+const showEditDialog = async (style: Style) => {
+  try {
+    const response = await styleApi.getStyleDetail(style.name)
+    if (response.data) {
+      const detail = response.data
+      editForm.originalName = detail.name // 保存原始名称
+      editForm.name = detail.name // 当前名称（可修改）
+      editForm.semantic.language_style = detail.features?.semantic?.language_style || ''
+      editForm.semantic.tone = detail.features?.semantic?.tone || ''
+      editForm.semantic.vocabulary_level = detail.features?.semantic?.vocabulary_level || ''
+      editForm.semantic.sentence_rhythm = detail.features?.semantic?.sentence_rhythm || ''
+      editForm.semantic.emotional_tendency = detail.features?.semantic?.emotional_tendency || ''
+      editForm.semantic.perspective = detail.features?.semantic?.perspective || ''
+      editForm.semantic.logic_structure = detail.features?.semantic?.logic_structure || ''
+      editForm.semantic.target_audience = detail.features?.semantic?.target_audience || ''
+      editForm.semantic.domain_characteristics = detail.features?.semantic?.domain_characteristics || ''
+      editForm.semantic.writing_quirks = detail.features?.semantic?.writing_quirks || ''
+      editForm.uniqueHabitsText = detail.features?.semantic?.unique_habits?.join('\n') || ''
+      showEditDialogVisible.value = true
+    }
+  } catch (error) {
+    MessagePlugin.error('获取风格详情失败')
+  }
+}
+
+// 处理编辑提交
+const handleEdit = async () => {
+  if (!editForm.name) {
+    MessagePlugin.warning('风格名称不能为空')
+    return
+  }
+
+  editing.value = true
+  try {
+    // 将文本框中的习惯转换为数组
+    const uniqueHabits = editForm.uniqueHabitsText
+      .split('\n')
+      .map(h => h.trim())
+      .filter(h => h.length > 0)
+
+    // 调用更新风格的 API，传入原始名称和新名称
+    await styleApi.updateStyle(editForm.originalName, {
+      style_name: editForm.name, // 新名称
+      features: {
+        semantic: {
+          language_style: editForm.semantic.language_style,
+          tone: editForm.semantic.tone,
+          vocabulary_level: editForm.semantic.vocabulary_level,
+          sentence_rhythm: editForm.semantic.sentence_rhythm,
+          emotional_tendency: editForm.semantic.emotional_tendency,
+          perspective: editForm.semantic.perspective,
+          logic_structure: editForm.semantic.logic_structure,
+          target_audience: editForm.semantic.target_audience,
+          domain_characteristics: editForm.semantic.domain_characteristics,
+          writing_quirks: editForm.semantic.writing_quirks,
+          unique_habits: uniqueHabits
+        }
+      }
+    })
+
+    MessagePlugin.success('风格更新成功')
+    showEditDialogVisible.value = false
+    fetchStyles()
+  } catch (error: any) {
+    MessagePlugin.error(error.response?.data?.message || '更新失败')
+  } finally {
+    editing.value = false
+  }
 }
 
 const handleAddSample = async () => {

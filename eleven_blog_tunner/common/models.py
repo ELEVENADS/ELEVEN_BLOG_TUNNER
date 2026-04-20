@@ -36,12 +36,17 @@ class User(Base):
 
 
 def get_db():
-    """获取数据库会话"""
+    """获取数据库会话（生成器版本，用于 FastAPI）"""
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+def get_db_session():
+    """获取数据库会话（直接返回版本，用于 Celery 任务）"""
+    return SessionLocal()
 
 
 class NoteCategory(Base):
@@ -104,10 +109,26 @@ class Article(Base):
     review_id = Column(UUID(as_uuid=True), index=True)
     published_platform = Column(String(50))
     published_url = Column(String(500))
+    metadata = Column(JSON)  # 存储额外元数据，如错误信息、任务ID等
+    celery_task_id = Column(String(100))  # Celery 任务ID
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     published_at = Column(DateTime)
     deleted_at = Column(DateTime)
+
+
+class ArticleVersion(Base):
+    """文章版本模型"""
+    __tablename__ = "article_versions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    article_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    version = Column(Integer, nullable=False)
+    title = Column(String(200), nullable=False)
+    outline = Column(JSON)
+    content = Column(Text, nullable=False)
+    change_summary = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 def create_tables():

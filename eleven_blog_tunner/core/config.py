@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     # 日志
     log_level: str = "INFO"
     
+    # Celery 配置
+    celery_broker_url: str = "redis://localhost:6379/0"
+    celery_result_backend: str = "redis://localhost:6379/0"
+    
     model_config = SettingsConfigDict(
         env_file=get_project_root() / ".env",
         env_file_encoding="utf-8",

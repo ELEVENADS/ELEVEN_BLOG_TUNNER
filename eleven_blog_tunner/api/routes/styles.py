@@ -21,12 +21,14 @@ router = APIRouter(prefix="/styles", tags=["styles"])
 
 class StyleExtractRequest(BaseModel):
     """风格提取请求"""
-    text: str
-    style_name: str
+    text: Optional[str] = None
+    style_name: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
     use_statistical: bool = True
     use_semantic: bool = True
     use_embedding: bool = True
+    statistical: Optional[Dict[str, Any]] = None
+    semantic: Optional[Dict[str, Any]] = None
 
 
 class NoteStyleExtractRequest(BaseModel):
@@ -325,6 +327,148 @@ async def get_style(style_name: str):
         return ErrorResponse.internal_error(message=str(e))
 
 
+@router.put("/{style_name}", response_model=CommonResponse[StyleResponseData])
+async def update_style(style_name: str, request: StyleExtractRequest):
+    """
+    更新指定风格的特征
+
+    - **style_name**: 风格名称
+    - **features**: 要更新的特征（semantic/statistical）
+    - **new_name**: 可选，新风格名称（用于重命名）
+    """
+    try:
+        style_manager = StyleManager()
+
+        # 加载现有风格
+        style_data = await style_manager.load_style(style_name)
+
+        # 处理风格名称变更
+        new_name = request.style_name
+        if new_name and new_name != style_name:
+            # 检查新名称是否已存在
+            new_style_path = style_manager.style_storage / f"{new_name}.json"
+            if new_style_path.exists():
+                return ErrorResponse.bad_request(f"风格名称 '{new_name}' 已存在")
+            
+            # 更新风格数据中的名称
+            style_data['name'] = new_name
+            
+            # 删除旧文件
+            old_style_path = style_manager.style_storage / f"{style_name}.json"
+            if old_style_path.exists():
+                old_style_path.unlink()
+        
+        # 更新特征
+        if request.text:
+            # 如果提供了新文本，重新提取风格
+            style_data = await style_manager.extract_style(
+                text=request.text,
+                style_name=style_data['name'],  # 使用可能已更新的名称
+                metadata=request.metadata or style_data.get('metadata', {}),
+                use_statistical=request.use_statistical,
+                use_semantic=request.use_semantic,
+                use_embedding=request.use_embedding
+            )
+        else:
+            # 只更新指定的特征字段
+            if 'features' not in style_data:
+                style_data['features'] = {}
+
+            # 更新语义特征
+            if request.semantic:
+                if 'semantic' not in style_data['features']:
+                    style_data['features']['semantic'] = {}
+                for key, value in request.semantic.items():
+                    if value is not None:
+                        style_data['features']['semantic'][key] = value
+
+            # 更新统计特征
+            if request.statistical:
+                if 'statistical' not in style_data['features']:
+                    style_data['features']['statistical'] = {}
+                for key, value in request.statistical.items():
+                    if value is not None:
+                        style_data['features']['statistical'][key] = value
+
+            # 保存更新后的风格
+            await style_manager._save_style(style_data['name'], style_data)
+
+        # 构建响应数据
+        features = style_data['features']
+
+        # 统计特征
+        statistical_response = None
+        if features.get('statistical'):
+            stat = features['statistical']
+            statistical_response = StatisticalFeaturesResponse(
+                vocabulary_diversity=stat.get('vocabulary_diversity', 0.0),
+                average_word_length=stat.get('average_word_length', 0.0),
+                unique_words_ratio=stat.get('unique_words_ratio', 0.0),
+                average_sentence_length=stat.get('average_sentence_length', 0.0),
+                sentence_complexity=stat.get('sentence_complexity', 0.0),
+                punctuation_density=stat.get('punctuation_density', 0.0),
+                paragraph_average_length=stat.get('paragraph_average_length', 0.0),
+                transition_words_ratio=stat.get('transition_words_ratio', 0.0),
+                passive_voice_ratio=stat.get('passive_voice_ratio', 0.0),
+                first_person_ratio=stat.get('first_person_ratio', 0.0),
+                emoji_usage=stat.get('emoji_usage', 0.0)
+            )
+
+        # 语义特征
+        semantic_response = None
+        if features.get('semantic'):
+            sem = features['semantic']
+            semantic_response = SemanticFeaturesResponse(
+                language_style=sem.get('language_style', ''),
+                tone=sem.get('tone', ''),
+                vocabulary_level=sem.get('vocabulary_level', ''),
+                sentence_rhythm=sem.get('sentence_rhythm', ''),
+                rhetoric_devices=sem.get('rhetoric_devices', []),
+                emotional_tendency=sem.get('emotional_tendency', ''),
+                perspective=sem.get('perspective', ''),
+                logic_structure=sem.get('logic_structure', ''),
+                unique_habits=sem.get('unique_habits', []),
+                target_audience=sem.get('target_audience', ''),
+                domain_characteristics=sem.get('domain_characteristics', ''),
+                writing_quirks=sem.get('writing_quirks', '')
+            )
+
+        features_response = FeaturesResponse(
+            statistical=statistical_response,
+            semantic=semantic_response
+        )
+
+        analysis_mode = AnalysisModeResponse(
+            use_statistical=style_data.get('analysis_mode', {}).get('use_statistical', True),
+            use_semantic=style_data.get('analysis_mode', {}).get('use_semantic', True),
+            use_embedding=style_data.get('analysis_mode', {}).get('use_embedding', True)
+        )
+
+        data = StyleResponseData(
+            name=style_data['name'],
+            features=features_response,
+            vector=style_data.get('vector', []),
+            metadata=style_data.get('metadata', {}),
+            analysis_mode=analysis_mode
+        )
+
+        # 确定最终名称用于显示
+        final_name = style_data['name']
+        if new_name and new_name != style_name:
+            message = f"风格 '{style_name}' 已重命名为 '{final_name}' 并更新成功"
+        else:
+            message = f"风格 '{final_name}' 更新成功"
+        
+        return SuccessResponse.build(
+            data=data,
+            message=message
+        )
+    except FileNotFoundError:
+        return ErrorResponse.not_found(f"风格 '{style_name}' 不存在")
+    except Exception as e:
+        return ErrorResponse.internal_error(message=str(e))
+
+
 @router.delete("/{style_name}", response_model=CommonResponse)
 async def delete_style(style_name: str):
     """
@@ -333,10 +477,10 @@ async def delete_style(style_name: str):
     try:
         style_manager = StyleManager()
         success = await style_manager.delete_style(style_name)
-        
+
         if not success:
             return ErrorResponse.not_found(f"风格 '{style_name}' 不存在")
-        
+
         return SuccessResponse.build(
             message=f"风格 '{style_name}' 已删除"
         )

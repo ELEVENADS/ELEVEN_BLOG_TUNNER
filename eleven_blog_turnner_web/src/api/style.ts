@@ -120,7 +120,7 @@ export const styleApi = {
     },
 
     async learnStyleFromFile(
-        file: File, 
+        file: File,
         styleName: string,
         options?: { use_statistical?: boolean; use_semantic?: boolean; use_embedding?: boolean }
     ): Promise<{ data: { style_name: string } }> {
@@ -156,6 +156,11 @@ export const styleApi = {
         await apiClient.delete(`/styles/${name}`)
     },
 
+    async updateStyle(name: string, data: { style_name?: string; features?: Partial<StyleFeatures> }): Promise<{ data: Style }> {
+        const response = await apiClient.put(`/styles/${name}`, data)
+        return response.data?.data
+    },
+
     async getStyleReferences(name: string, topK: number = 5): Promise<{ data: { references: Array<{ content: string; char_count: number; added_at: string }> } }> {
         const response = await apiClient.get(`/styles/${name}/references`, {
             params: { top_k: topK }
@@ -164,7 +169,7 @@ export const styleApi = {
     },
 
     async previewStyle(
-        file: File, 
+        file: File,
         styleName?: string,
         options?: { use_statistical?: boolean; use_semantic?: boolean; use_embedding?: boolean }
     ): Promise<{ data: PreviewStyleResponse }> {

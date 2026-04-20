@@ -9,17 +9,17 @@
             :autosize="{ minRows: 3, maxRows: 6 }"
           />
         </t-form-item>
-        
+
         <t-form-item label="选择风格" name="style_name">
           <t-select v-model="formData.style_name" placeholder="请选择写作风格" filterable>
-            <t-option v-for="style in styleList" :key="style" :value="style" :label="style" />
+            <t-option v-for="style in styleList" :key="style.name" :value="style.name" :label="style.name" />
           </t-select>
         </t-form-item>
-        
+
         <t-form-item label="目标字数" name="target_length">
           <t-input-number v-model="formData.target_length" :min="100" :max="10000" :step="100" />
         </t-form-item>
-        
+
         <t-form-item label="文章大纲" name="outline">
           <div class="outline-editor">
             <div v-for="(section, index) in formData.outline" :key="index" class="outline-item">
@@ -35,7 +35,7 @@
             </t-button>
           </div>
         </t-form-item>
-        
+
         <t-form-item>
           <t-space>
             <t-button theme="primary" type="submit" :loading="generating" @click="handleGenerate">
@@ -72,7 +72,7 @@ const generating = ref(false)
 const taskId = ref<string | null>(null)
 const progress = ref(0)
 const progressText = ref('')
-const styleList = ref<string[]>([])
+const styleList = ref<Array<{ name: string; created_at: string; updated_at: string; sample_count: number; total_chars: number }>>([])
 
 const formData = reactive({
   topic: '',

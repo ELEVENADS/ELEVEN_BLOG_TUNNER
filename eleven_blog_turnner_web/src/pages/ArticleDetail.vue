@@ -9,52 +9,67 @@
           </t-tag>
         </div>
       </template>
+      
       <template #actions>
         <t-space>
-          <t-button v-if="article.status === 'draft'" theme="primary" @click="submitReview">提交审核</t-button>
-          <t-button v-if="article.status === 'approved'" theme="success" @click="publishArticle">发布</t-button>
           <t-button theme="default" @click="handleBack">返回</t-button>
+          <t-button theme="primary" @click="handleEdit">编辑</t-button>
+          <t-button v-if="article.status === 'draft'" theme="warning" @click="submitReview">
+            提交审核
+          </t-button>
+          <t-button v-if="article.status === 'approved'" theme="success" @click="publishArticle">
+            发布
+          </t-button>
         </t-space>
       </template>
 
       <div class="article-meta">
         <t-space>
-          <span>主题: {{ article.topic }}</span>
-          <span>风格: {{ article.style_name }}</span>
-          <span>字数: {{ article.word_count }}</span>
+          <span>主题: {{ article.topic || '-' }}</span>
+          <span>风格: {{ article.style_name || '-' }}</span>
+          <span>字数: {{ article.word_count || 0 }}</span>
           <span v-if="article.quality_score">质量分: {{ article.quality_score }}/100</span>
+          <span>版本: v{{ article.version || 1 }}</span>
         </t-space>
       </div>
 
       <t-divider />
 
-      <div class="article-content">
-        <div v-html="renderedContent"></div>
+      <!-- 预览模式 -->
+      <div v-if="!editing" class="article-content-preview">
+        <div class="markdown-body" v-html="renderedContent"></div>
+      </div>
+
+      <!-- 编辑模式 -->
+      <div v-else class="article-edit-mode">
+        <MarkdownEditor
+          v-model="editData"
+          placeholder="编辑文章内容..."
+        />
+        <div class="edit-actions">
+          <t-space>
+            <t-button theme="primary" @click="handleSave" :loading="saving">保存修改</t-button>
+            <t-button theme="default" @click="cancelEdit">取消</t-button>
+          </t-space>
+        </div>
       </div>
 
       <t-divider />
 
-      <div class="article-actions">
-        <t-form v-if="editing" :data="editForm" @submit="handleSave">
-          <t-form-item label="文章内容">
-            <t-textarea
-              v-model="editForm.content"
-              :autosize="{ minRows: 10, maxRows: 20 }"
-            />
-          </t-form-item>
-          <t-form-item label="修改原因">
-            <t-input v-model="editForm.reason" placeholder="请输入修改原因" />
-          </t-form-item>
-          <t-form-item>
-            <t-space>
-              <t-button type="submit" theme="primary">保存</t-button>
-              <t-button @click="editing = false">取消</t-button>
-            </t-space>
-          </t-form-item>
-        </t-form>
-        <t-button v-else theme="default" @click="startEditing">
-          <t-icon name="edit" /> 编辑文章
-        </t-button>
+      <!-- 版本历史 -->
+      <div class="version-history">
+        <h3>版本历史</h3>
+        <t-timeline v-if="versions.length > 0">
+          <t-timeline-item v-for="version in versions" :key="version.version">
+            <div class="version-item">
+              <span class="version-number">版本 {{ version.version }}</span>
+              <span class="version-time">{{ formatTime(version.created_at) }}</span>
+              <span v-if="version.reason" class="version-reason">{{ version.reason }}</span>
+              <t-link theme="primary" @click="restoreVersion(version.version)">恢复此版本</t-link>
+            </div>
+          </t-timeline-item>
+        </t-timeline>
+        <t-empty v-else description="暂无版本历史" />
       </div>
     </t-card>
 
@@ -69,36 +84,59 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { articleApi, type Article } from '@/api/article'
+import MarkdownEditor from '@/components/MarkdownEditor.vue'
+import { marked } from 'marked'
 
 const router = useRouter()
 const route = useRoute()
 
 const article = ref<Article | null>(null)
 const editing = ref(false)
+const saving = ref(false)
+const versions = ref<Array<{version: number; created_at: number; reason?: string}>>([])
 
-const editForm = reactive({
-  content: '',
-  reason: ''
+const editData = reactive({
+  title: '',
+  content: ''
 })
 
 const renderedContent = computed(() => {
   if (!article.value?.content) return ''
-  return article.value.content.replace(/\n/g, '<br>')
+  return marked.parse(article.value.content, { breaks: true })
 })
 
 onMounted(async () => {
   const id = route.params.id as string
   if (id) {
-    try {
-      const response = await articleApi.getArticleDetail(id)
-      if (response.data) {
-        article.value = response.data
-      }
-    } catch (error) {
-      console.error('Failed to fetch article:', error)
-    }
+    await loadArticle(id)
+    await loadVersions(id)
   }
 })
+
+const loadArticle = async (id: string) => {
+  try {
+    const response = await articleApi.getArticleDetail(id)
+    if (response.data) {
+      article.value = response.data
+      editData.title = response.data.title
+      editData.content = response.data.content
+    }
+  } catch (error) {
+    console.error('Failed to fetch article:', error)
+    MessagePlugin.error('加载文章失败')
+  }
+}
+
+const loadVersions = async (id: string) => {
+  try {
+    const response = await articleApi.getArticleVersions(id)
+    if (response.data?.versions) {
+      versions.value = response.data.versions
+    }
+  } catch (error) {
+    console.error('Failed to fetch versions:', error)
+  }
+}
 
 const getStatusTheme = (status: string) => {
   const themes: Record<string, any> = {
@@ -124,24 +162,36 @@ const getStatusText = (status: string) => {
   return texts[status] || status
 }
 
-const startEditing = () => {
+const formatTime = (timestamp: number) => {
+  return new Date(timestamp * 1000).toLocaleString()
+}
+
+const handleEdit = () => {
+  editing.value = true
+}
+
+const cancelEdit = () => {
+  editing.value = false
   if (article.value) {
-    editForm.content = article.value.content
-    editing.value = true
+    editData.title = article.value.title
+    editData.content = article.value.content
   }
 }
 
 const handleSave = async () => {
   if (!article.value) return
+  
+  saving.value = true
   try {
-    await articleApi.updateArticle(article.value.id, editForm)
+    await articleApi.updateArticle(article.value.id, editData.content, '手动编辑')
     MessagePlugin.success('保存成功')
-    if (article.value) {
-      article.value.content = editForm.content
-    }
+    await loadArticle(article.value.id)
+    await loadVersions(article.value.id)
     editing.value = false
   } catch (error) {
     MessagePlugin.error('保存失败')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -171,6 +221,18 @@ const publishArticle = async () => {
   }
 }
 
+const restoreVersion = async (version: number) => {
+  if (!article.value) return
+  try {
+    await articleApi.restoreVersion(article.value.id, version)
+    MessagePlugin.success(`已恢复到版本 ${version}`)
+    await loadArticle(article.value.id)
+    await loadVersions(article.value.id)
+  } catch (error) {
+    MessagePlugin.error('恢复失败')
+  }
+}
+
 const handleBack = () => {
   router.push('/articles')
 }
@@ -178,7 +240,7 @@ const handleBack = () => {
 
 <style scoped>
 .article-detail {
-  max-width: 1000px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -196,11 +258,100 @@ const handleBack = () => {
 .article-meta {
   color: #666;
   font-size: 14px;
+  margin-bottom: 16px;
 }
 
-.article-content {
+.article-content-preview {
+  min-height: 300px;
+  padding: 20px 0;
+}
+
+.article-edit-mode {
+  min-height: 500px;
+}
+
+.edit-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e7e7e7;
+}
+
+.version-history {
+  margin-top: 24px;
+}
+
+.version-history h3 {
+  margin-bottom: 16px;
+  font-size: 16px;
+}
+
+.version-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.version-number {
+  font-weight: 600;
+}
+
+.version-time {
+  color: #999;
+  font-size: 12px;
+}
+
+.version-reason {
+  color: #666;
+  font-size: 13px;
+}
+
+.markdown-body {
   line-height: 1.8;
   font-size: 16px;
-  padding: 20px 0;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3),
+.markdown-body :deep(h4),
+.markdown-body :deep(h5),
+.markdown-body :deep(h6) {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body :deep(p) {
+  margin-bottom: 16px;
+}
+
+.markdown-body :deep(ul),
+.markdown-body :deep(ol) {
+  margin-bottom: 16px;
+  padding-left: 24px;
+}
+
+.markdown-body :deep(code) {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.markdown-body :deep(pre) {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.markdown-body :deep(blockquote) {
+  border-left: 4px solid #ddd;
+  padding-left: 16px;
+  margin-left: 0;
+  color: #666;
 }
 </style>
